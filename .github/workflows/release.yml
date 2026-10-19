@@ -144,7 +144,7 @@ jobs:
         working-directory: dist
         run: sha256sum OrbitDrop-* > SHA256SUMS.txt
       - name: Attest release provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/OrbitDrop-*
       - name: Publish GitHub release
