@@ -4,7 +4,7 @@ Native, privacy-first desktop file tools for macOS and Windows.
 
 OrbitDrop adds a transparent radial command wheel to Finder and File Explorer. Select a file, right-click, glide to an action, and release. Conversion and editing happen entirely on the computer—no uploads, accounts, analytics, cookies, or telemetry.
 
-[Download OrbitDrop](https://orbitdrop-private-file-tools.newcivet16.chatgpt.site/#download) · [Product website](https://orbitdrop-private-file-tools.newcivet16.chatgpt.site) · [Website source](https://github.com/sasukefrontenddev/orbitdrop-website)
+[Download OrbitDrop](https://orbitdropapp.vercel.app/#download) · [Product website](https://orbitdropapp.vercel.app) · [Website source](https://github.com/sasukefrontenddev/orbitdrop-website)
 
 ![OrbitDrop transparent radial command wheel](docs/orbitdrop-wheel.png)
 
@@ -27,7 +27,7 @@ OrbitDrop adds a transparent radial command wheel to Finder and File Explorer. S
 
 ## Install
 
-Download the latest installers from the [OrbitDrop releases page](https://github.com/sasukefrontenddev/orbitdrop/releases/latest) or the [official website](https://orbitdrop-private-file-tools.newcivet16.chatgpt.site/#download).
+Download the latest installers from the [OrbitDrop releases page](https://github.com/sasukefrontenddev/orbitdrop/releases/latest) or the [official website](https://orbitdropapp.vercel.app/#download).
 
 ### macOS
 
