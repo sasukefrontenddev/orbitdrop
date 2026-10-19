@@ -71,6 +71,16 @@ The self-contained x64 executable is created under `windows/build/win-x64`.
 
 OrbitDrop performs file operations locally. It has no server API, upload system, user database, analytics SDK, advertising identifier, or telemetry endpoint. See [PRIVACY.md](PRIVACY.md) for the complete promise.
 
+## Release automation
+
+Every pull request and change to `main` builds and tests the native macOS and Windows apps. To publish a release:
+
+1. Run `sh scripts/set-version.sh 0.5.0` with the intended version.
+2. Commit and merge the version change after the required owner review.
+3. The successful `main` build automatically creates and publishes the matching release. **Actions → Desktop release → Run workflow** is available only as a recovery option.
+
+The release workflow creates the version tag, rebuilds both apps on their native operating systems, generates SHA-256 checksums, publishes build-provenance attestations, and uploads the installers to GitHub Releases. The product website reads the latest verified release automatically, so its download buttons, version number, file sizes, and checksum directory update without copying installers into the website repository.
+
 ## Repository policy
 
 The source is published for transparency and portfolio review. See [LICENSE](LICENSE) before copying or redistributing it. Contributions and responsible security reports are welcome.

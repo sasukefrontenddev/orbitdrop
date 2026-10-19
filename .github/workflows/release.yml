@@ -1,0 +1,155 @@
+name: Desktop release
+
+on:
+  workflow_run:
+    workflows: ["Native builds"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example 0.5.0
+        required: true
+        type: string
+
+concurrency:
+  group: desktop-release-${{ github.event.workflow_run.head_sha || inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.version.outputs.sha }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - id: version
+        name: Validate version and prepare tag
+        shell: bash
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source_version="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' windows/OrbitDrop.Native.csproj)"
+          version="${DISPATCH_VERSION#v}"
+          [[ -n "$version" ]] || version="$source_version"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $version"; exit 1; }
+          [[ "$version" == "$source_version" ]] || { echo "Requested version $version does not match source version $source_version"; exit 1; }
+          sh scripts/verify-version.sh "$version"
+          sha="$(git rev-parse HEAD)"
+          tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; no publication is needed."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            tag_sha="$(git rev-list -n 1 "$tag")"
+            [[ "$tag_sha" == "$sha" ]] || { echo "Existing tag $tag points to $tag_sha instead of $sha"; exit 1; }
+            echo "Using existing tag $tag"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" "$sha" -m "OrbitDrop $version"
+          git push origin "$tag"
+
+  macos:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - name: Test native file operations
+        run: zsh macos/test.sh
+      - name: Build universal application
+        run: zsh macos/build.sh
+      - name: Package macOS release
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent macos/build/OrbitDrop.app "dist/OrbitDrop-${VERSION}-macOS-universal.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build self-contained application
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          ./windows/build.ps1 -Version $env:VERSION
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item windows/build/win-x64/OrbitDrop.exe "dist/OrbitDrop-$env:VERSION-Windows-x64.exe"
+          Compress-Archive -Path windows/build/win-x64/OrbitDrop.exe -DestinationPath "dist/OrbitDrop-$env:VERSION-Windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [prepare, macos, windows]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Create SHA-256 checksums
+        working-directory: dist
+        run: sha256sum OrbitDrop-* > SHA256SUMS.txt
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/OrbitDrop-*
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: gh release create "$TAG" dist/* --verify-tag --title "OrbitDrop $VERSION" --generate-notes

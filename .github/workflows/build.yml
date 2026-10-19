@@ -8,10 +8,26 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: native-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify platform versions match
+        run: |
+          version="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' windows/OrbitDrop.Native.csproj)"
+          sh scripts/verify-version.sh "$version"
+
   macos:
     name: macOS universal
     runs-on: macos-14
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Test file operations
@@ -22,10 +38,12 @@ jobs:
         with:
           name: OrbitDrop-macOS-universal
           path: macos/build/OrbitDrop.app
+          retention-days: 14
 
   windows:
     name: Windows x64
     runs-on: windows-2022
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -38,3 +56,4 @@ jobs:
         with:
           name: OrbitDrop-Windows-x64
           path: windows/build/win-x64/OrbitDrop.exe
+          retention-days: 14
