@@ -32,7 +32,7 @@ jobs:
       sha: ${{ steps.version.outputs.sha }}
       publish: ${{ steps.version.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
@@ -77,7 +77,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
       - name: Test native file operations
@@ -90,7 +90,7 @@ jobs:
         run: |
           mkdir -p dist
           ditto -c -k --sequesterRsrc --keepParent macos/build/OrbitDrop.app "dist/OrbitDrop-${VERSION}-macOS-universal.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-macos
           path: dist/*
@@ -103,10 +103,10 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
       - name: Build self-contained application
@@ -118,7 +118,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item windows/build/win-x64/OrbitDrop.exe "dist/OrbitDrop-$env:VERSION-Windows-x64.exe"
           Compress-Archive -Path windows/build/win-x64/OrbitDrop.exe -DestinationPath "dist/OrbitDrop-$env:VERSION-Windows-x64.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-windows
           path: dist/*
@@ -135,7 +135,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: dist
@@ -144,7 +144,7 @@ jobs:
         working-directory: dist
         run: sha256sum OrbitDrop-* > SHA256SUMS.txt
       - name: Attest release provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/OrbitDrop-*
       - name: Publish GitHub release

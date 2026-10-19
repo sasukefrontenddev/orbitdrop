@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify platform versions match
         run: |
           version="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' windows/OrbitDrop.Native.csproj)"
@@ -29,12 +29,12 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Test file operations
         run: zsh macos/test.sh
       - name: Build universal app
         run: zsh macos/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: OrbitDrop-macOS-universal
           path: macos/build/OrbitDrop.app
@@ -45,14 +45,14 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
       - name: Build self-contained app
         shell: pwsh
         run: ./windows/build.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: OrbitDrop-Windows-x64
           path: windows/build/win-x64/OrbitDrop.exe
