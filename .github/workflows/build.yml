@@ -34,7 +34,7 @@ jobs:
         run: zsh macos/test.sh
       - name: Build universal app
         run: zsh macos/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: OrbitDrop-macOS-universal
           path: macos/build/OrbitDrop.app
@@ -52,7 +52,7 @@ jobs:
       - name: Build self-contained app
         shell: pwsh
         run: ./windows/build.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: OrbitDrop-Windows-x64
           path: windows/build/win-x64/OrbitDrop.exe
