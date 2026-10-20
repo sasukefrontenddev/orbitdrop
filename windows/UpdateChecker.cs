@@ -133,8 +133,8 @@ internal sealed class UpdateChecker : IDisposable
                 WindowStyle = ProcessWindowStyle.Hidden
             };
             if (startInfo.UseShellExecute) startInfo.Verb = "runas";
-            Process.Start(startInfo) ?? throw new InvalidOperationException("OrbitDrop could not start the updater.");
-            _dispatcher.BeginInvoke(() => Application.Current.Shutdown());
+            _ = Process.Start(startInfo) ?? throw new InvalidOperationException("OrbitDrop could not start the updater.");
+            _ = _dispatcher.BeginInvoke(() => Application.Current.Shutdown());
         }
         catch
         {
