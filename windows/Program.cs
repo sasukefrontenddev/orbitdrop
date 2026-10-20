@@ -160,7 +160,7 @@ internal sealed class OrbitController : IDisposable
     private static void ShowHelp()
     {
         System.Windows.MessageBox.Show(
-            "1. Select a file in File Explorer.\n2. Right-click it.\n3. Drag toward a conversion or image-editing action and release.\n\nThe transparent wheel includes PDF, PNG, JPG, TIFF, BMP, ZIP, compression, resize, rotate, flip, grayscale, and copy. Files never leave this PC.",
+            "1. Select a file in File Explorer.\n2. Hold the right mouse button until the wheel appears.\n3. Glide to an action while still holding, then release to run it.\n\nYou can also right-click and release, move over an action, and left-click it. Press Escape to close the wheel. Files never leave this PC.",
             "OrbitDrop — native Windows utility",
             MessageBoxButton.OK,
             MessageBoxImage.Information);

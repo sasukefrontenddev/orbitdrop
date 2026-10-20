@@ -58,6 +58,13 @@ struct OperationTests {
             throw OrbitFileError.conversionFailed("Resize did not reduce the image dimensions.")
         }
 
-        print("PASS: 12 actions including TIFF, BMP, resize, rotate, flip, grayscale, document-to-PDF, and ZIP")
+        let originalBytes = (try manager.attributesOfItem(atPath: image.path)[.size] as? NSNumber)?.intValue ?? 0
+        let compressedBytes = (try manager.attributesOfItem(atPath: compressed.path)[.size] as? NSNumber)?.intValue ?? 0
+        guard originalBytes > 0, compressedBytes > 0, compressedBytes <= Int(Double(originalBytes) * 0.70) else {
+            throw OrbitFileError.conversionFailed("Compression did not reduce the fixture by at least 30% (\(originalBytes) → \(compressedBytes) bytes).")
+        }
+
+        let reduction = 100 - Int((Double(compressedBytes) / Double(originalBytes)) * 100)
+        print("PASS: 12 actions; adaptive compression reduced the fixture by \(reduction)%")
     }
 }

@@ -58,7 +58,7 @@ internal static class FileOperations
             OrbitAction.Tiff => ConvertImage(source, ImageFormat.Tiff, 100),
             OrbitAction.Bmp => ConvertImage(source, ImageFormat.Bmp, 100),
             OrbitAction.Zip => ZipSingle(source, ""),
-            OrbitAction.Shrink => Images.Contains(Path.GetExtension(source)) ? ConvertImage(source, ImageFormat.Jpg, 62, " compressed") : ZipSingle(source, " compressed"),
+            OrbitAction.Shrink => Images.Contains(Path.GetExtension(source)) ? CompressImage(source) : ZipSingle(source, " compressed"),
             OrbitAction.Resize => EditImage(source, ImageEdit.Resize),
             OrbitAction.Rotate => EditImage(source, ImageEdit.Rotate),
             OrbitAction.Flip => EditImage(source, ImageEdit.Flip),
@@ -164,6 +164,39 @@ internal static class FileOperations
         return output;
     }
 
+    private static string CompressImage(string source)
+    {
+        using var input = File.OpenRead(source);
+        var frame = BitmapDecoder.Create(input, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
+        var originalBytes = new FileInfo(source).Length;
+        var firstScale = Math.Min(1.0, 1920.0 / Math.Max(frame.PixelWidth, frame.PixelHeight));
+        var targetBytes = Math.Max(18_000L, (long)(originalBytes * 0.55));
+        var attempts = new (double Scale, int Quality)[]
+        {
+            (1.00, 58), (0.86, 52), (0.72, 46), (0.60, 40), (0.48, 36)
+        };
+        byte[]? best = null;
+
+        foreach (var attempt in attempts)
+        {
+            var scale = firstScale * attempt.Scale;
+            BitmapSource candidate = scale < 0.995
+                ? new TransformedBitmap(frame, new ScaleTransform(scale, scale))
+                : frame;
+            var encoder = new JpegBitmapEncoder { QualityLevel = attempt.Quality };
+            encoder.Frames.Add(BitmapFrame.Create(candidate));
+            using var memory = new MemoryStream();
+            encoder.Save(memory);
+            best = memory.ToArray();
+            if (best.LongLength <= targetBytes) break;
+        }
+
+        if (best is null) throw new InvalidDataException("The image could not be compressed.");
+        var output = UniquePath(Path.GetDirectoryName(source)!, Path.GetFileNameWithoutExtension(source) + " compressed", ".jpg");
+        File.WriteAllBytes(output, best);
+        return output;
+    }
+
     private static string EditImage(string source, ImageEdit edit)
     {
         using var input = File.OpenRead(source);
@@ -212,13 +245,13 @@ internal static class FileOperations
     {
         if (File.Exists(source))
         {
-            archive.CreateEntryFromFile(source, entryRoot, CompressionLevel.Optimal);
+            archive.CreateEntryFromFile(source, entryRoot, CompressionLevel.SmallestSize);
             return;
         }
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(source, file);
-            archive.CreateEntryFromFile(file, Path.Combine(entryRoot, relative).Replace('\\', '/'), CompressionLevel.Optimal);
+            archive.CreateEntryFromFile(file, Path.Combine(entryRoot, relative).Replace('\\', '/'), CompressionLevel.SmallestSize);
         }
     }
 

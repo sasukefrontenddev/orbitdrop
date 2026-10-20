@@ -80,15 +80,59 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
+      - name: Require Apple release credentials
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_CERTIFICATE_P12 APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [[ -n "${!name}" ]] || { echo "Missing repository secret: $name"; exit 1; }
+          done
+      - name: Import Developer ID certificate
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          certificate_path="$RUNNER_TEMP/orbitdrop-developer-id.p12"
+          keychain_path="$RUNNER_TEMP/orbitdrop-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          printf '%s' "$APPLE_CERTIFICATE_P12" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          echo "ORBITDROP_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
       - name: Test native file operations
         run: zsh macos/test.sh
       - name: Build universal application
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: zsh macos/build.sh
-      - name: Package macOS release
+      - name: Notarize and staple macOS application
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           mkdir -p dist
+          submission="$RUNNER_TEMP/OrbitDrop-${VERSION}-notarization.zip"
+          ditto -c -k --sequesterRsrc --keepParent macos/build/OrbitDrop.app "$submission"
+          xcrun notarytool submit "$submission" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple macos/build/OrbitDrop.app
+          xcrun stapler validate macos/build/OrbitDrop.app
+          codesign --verify --deep --strict --verbose=2 macos/build/OrbitDrop.app
+          spctl --assess --type execute --verbose=2 macos/build/OrbitDrop.app
           ditto -c -k --sequesterRsrc --keepParent macos/build/OrbitDrop.app "dist/OrbitDrop-${VERSION}-macOS-universal.zip"
       - uses: actions/upload-artifact@v7
         with:
@@ -96,6 +140,10 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+      - name: Remove temporary signing keychain
+        if: always()
+        run: |
+          [[ -z "${ORBITDROP_KEYCHAIN:-}" ]] || security delete-keychain "$ORBITDROP_KEYCHAIN"
 
   windows:
     needs: prepare

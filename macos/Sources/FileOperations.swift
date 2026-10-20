@@ -1,4 +1,6 @@
 import AppKit
+import ImageIO
+import UniformTypeIdentifiers
 
 enum OrbitFileError: LocalizedError {
     case unsupported(String)
@@ -44,7 +46,7 @@ enum FileOperations {
             case .zip: return try zip(source)
             case .shrink:
                 return imageExtensions.contains(source.pathExtension.lowercased())
-                    ? try convertImage(source, format: .jpeg, quality: 0.62, suffix: " compressed")
+                    ? try compressImage(source)
                     : try zip(source, suffix: " compressed")
             case .copy: return try copy(source)
             case .resize: return try editImage(source, operation: .resize)
@@ -126,6 +128,70 @@ enum FileOperations {
         let output = uniqueURL(beside: source, stem: stem, extension: ext)
         try data.write(to: output, options: .atomic)
         return output
+    }
+
+    private static func compressImage(_ source: URL) throws -> URL {
+        guard let imageSource = CGImageSourceCreateWithURL(source as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
+            throw OrbitFileError.unsupported("This image format is not supported by macOS.")
+        }
+
+        let originalBytes = ((try? FileManager.default.attributesOfItem(atPath: source.path)[.size]) as? NSNumber)?.intValue ?? 0
+        let originalMaximum = max(width.intValue, height.intValue)
+        let firstMaximum = min(originalMaximum, 1920)
+        let targetBytes = max(18_000, Int(Double(originalBytes) * 0.55))
+        let attempts: [(scale: Double, quality: Double)] = [
+            (1.00, 0.58), (0.86, 0.52), (0.72, 0.46), (0.60, 0.40), (0.48, 0.36),
+        ]
+        var bestData: Data?
+
+        for attempt in attempts {
+            let maximum = max(480, Int(Double(firstMaximum) * attempt.scale))
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maximum,
+            ]
+            guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary),
+                  let data = jpegData(from: thumbnail, quality: attempt.quality) else { continue }
+            bestData = data
+            if data.count <= targetBytes { break }
+        }
+
+        guard let data = bestData else {
+            throw OrbitFileError.conversionFailed("The image could not be compressed.")
+        }
+        let output = uniqueURL(
+            beside: source,
+            stem: source.deletingPathExtension().lastPathComponent + " compressed",
+            extension: "jpg"
+        )
+        try data.write(to: output, options: .atomic)
+        return output
+    }
+
+    private static func jpegData(from image: CGImage, quality: Double) -> Data? {
+        guard let context = CGContext(
+            data: nil,
+            width: image.width,
+            height: image.height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else { return nil }
+        context.setFillColor(NSColor.white.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let flattened = context.makeImage() else { return nil }
+
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(destination, flattened, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        return CGImageDestinationFinalize(destination) ? data as Data : nil
     }
 
     private enum ImageEdit {
@@ -222,14 +288,18 @@ enum FileOperations {
 
     private static func zip(_ source: URL, suffix: String = "") throws -> URL {
         let output = uniqueURL(beside: source, stem: source.deletingPathExtension().lastPathComponent + suffix, extension: "zip")
-        try run("/usr/bin/ditto", arguments: ["-c", "-k", "--sequesterRsrc", "--keepParent", source.path, output.path])
+        try run(
+            "/usr/bin/zip",
+            arguments: ["-9", "-q", "-r", output.path, source.lastPathComponent],
+            currentDirectory: source.deletingLastPathComponent()
+        )
         return output
     }
 
     private static func zipTogether(_ sources: [URL]) throws -> URL {
         let directory = sources[0].deletingLastPathComponent()
         let output = uniqueURL(in: directory, stem: "OrbitDrop Archive", extension: "zip")
-        let arguments = ["-r", "-q", output.path] + sources.map(\.path)
+        let arguments = ["-9", "-r", "-q", output.path] + sources.map(\.path)
         try run("/usr/bin/zip", arguments: arguments)
         return output
     }
@@ -257,11 +327,12 @@ enum FileOperations {
         return candidate
     }
 
-    private static func run(_ executable: String, arguments: [String]) throws {
+    private static func run(_ executable: String, arguments: [String], currentDirectory: URL? = nil) throws {
         let process = Process()
         let errorPipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
+        process.currentDirectoryURL = currentDirectory
         process.standardError = errorPipe
         try process.run()
         process.waitUntilExit()

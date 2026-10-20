@@ -81,6 +81,8 @@ Every pull request and change to `main` builds and tests the native macOS and Wi
 
 The release workflow creates the version tag, rebuilds both apps on their native operating systems, generates SHA-256 checksums, publishes build-provenance attestations, and uploads the installers to GitHub Releases. The product website reads the latest verified release automatically, so its download buttons, version number, file sizes, and checksum directory update without copying installers into the website repository.
 
+macOS releases are Developer ID signed, hardened, notarized by Apple, and stapled before publication. The repository must define `APPLE_CERTIFICATE_P12` (base64-encoded Developer ID Application certificate), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` as Actions secrets. The release intentionally fails instead of publishing an unsigned Mac build when any credential is missing.
+
 ## Repository policy
 
 The source is published for transparency and portfolio review. See [LICENSE](LICENSE) before copying or redistributing it. Contributions and responsible security reports are welcome.

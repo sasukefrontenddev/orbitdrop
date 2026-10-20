@@ -57,7 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Use OrbitDrop directly in Finder"
-        alert.informativeText = "1. Select a file on the Desktop or in Finder.\n2. Right-click it.\n3. Drag toward a conversion or image-editing action and release.\n\nThe transparent wheel includes PDF, PNG, JPG, TIFF, BMP, ZIP, compression, resize, rotate, flip, grayscale, and copy. All processing stays on this Mac."
+        alert.informativeText = "1. Select a file on the Desktop or in Finder.\n2. Hold the right mouse button until the wheel appears.\n3. Glide to an action while still holding, then release to run it.\n\nYou can also right-click and release, move over an action, and left-click it. Press Escape to close the wheel. All processing stays on this Mac."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Got it")
         alert.runModal()

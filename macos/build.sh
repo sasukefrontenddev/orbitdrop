@@ -8,6 +8,7 @@ SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 MODULE_CACHE="${TMPDIR:-/private/tmp}/orbitdrop-clang-module-cache"
 ARM_BINARY="$BUILD_DIR/OrbitDrop-arm64"
 INTEL_BINARY="$BUILD_DIR/OrbitDrop-x86_64"
+SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY:--}"
 
 if [[ -d "$APP_DIR" ]]; then
   rm -rf "$APP_DIR"
@@ -37,7 +38,13 @@ lipo -create "$ARM_BINARY" "$INTEL_BINARY" -output "$APP_DIR/Contents/MacOS/Orbi
 
 cp "$SCRIPT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$SCRIPT_DIR/OrbitDrop.icns" "$APP_DIR/Contents/Resources/OrbitDrop.icns"
-codesign --force --deep --sign - "$APP_DIR"
+if [[ "$SIGNING_IDENTITY" == "-" ]]; then
+  codesign --force --deep --sign - "$APP_DIR"
+else
+  codesign --force --deep --options runtime --timestamp \
+    --entitlements "$SCRIPT_DIR/OrbitDrop.entitlements" \
+    --sign "$SIGNING_IDENTITY" "$APP_DIR"
+fi
 codesign --verify --deep --strict "$APP_DIR"
 
 echo "$APP_DIR"
