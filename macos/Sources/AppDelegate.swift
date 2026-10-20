@@ -94,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func checkForUpdates() {
-        updateChecker.check()
+        updateChecker.check(showCurrent: true)
     }
 
     @objc private func quit() {

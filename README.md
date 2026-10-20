@@ -4,7 +4,7 @@ Native, privacy-first desktop file tools for macOS and Windows.
 
 OrbitDrop adds a transparent radial command wheel to Finder and File Explorer. Select a file, hold your chosen keyboard trigger, move to an action, and release the key. Conversion and editing happen entirely on the computer—no uploads, accounts, analytics, cookies, or telemetry.
 
-The app checks the official GitHub Releases API for updates at startup and every six hours while it is running. This best-effort check contains no file data or tracking identifier, can also be triggered from the menu-bar/tray menu, and never blocks offline file operations.
+The app checks the official GitHub Releases API for updates at startup and every six hours while it is running. This best-effort check contains no file data or tracking identifier, can also be triggered from the menu-bar/tray menu, and never blocks offline file operations. Starting with version 0.6.0, **Install Update** verifies the published SHA-256 checksum, replaces the running copy in place, reopens OrbitDrop, and removes its temporary files. A rollback copy is restored automatically if replacement fails.
 
 [Download OrbitDrop](https://orbitdropapp.vercel.app/#download) · [Product website](https://orbitdropapp.vercel.app) · [Website source](https://github.com/sasukefrontenddev/orbitdrop-website)
 
@@ -87,7 +87,7 @@ OrbitDrop performs file operations locally. It has no server API, upload system,
 
 Every pull request and change to `main` builds and tests the native macOS and Windows apps. To publish a release:
 
-1. Run `sh scripts/set-version.sh 0.5.0` with the intended version.
+1. Run `sh scripts/set-version.sh 0.6.0` with the intended version.
 2. Commit and merge the version change after the required owner review.
 3. The successful `main` build automatically creates and publishes the matching release. **Actions → Desktop release → Run workflow** is available only as a recovery option.
 
