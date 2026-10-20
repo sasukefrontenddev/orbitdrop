@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var eventController: GlobalFinderGestureController!
     private var updateChecker: UpdateChecker!
     private var permissionTimer: Timer?
+    private var triggerMenuItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureStatusItem()
@@ -24,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "circle.hexagongrid.circle.fill", accessibilityDescription: "OrbitDrop")
                 ?? NSImage(systemSymbolName: "circle.hexagongrid.fill", accessibilityDescription: "OrbitDrop")
-            button.toolTip = "OrbitDrop — right-click selected Finder files"
+            button.toolTip = "OrbitDrop — hold your trigger key on selected Finder files"
         }
 
         let menu = NSMenu()
@@ -33,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(status)
         menu.addItem(.separator())
         menu.addItem(withTitle: "How to use OrbitDrop", action: #selector(showHelp), keyEquivalent: "")
+        triggerMenuItem = menu.addItem(withTitle: "Trigger key: \(TriggerKey.current.label)…", action: #selector(changeTriggerKey), keyEquivalent: "")
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
         menu.addItem(withTitle: "Enable Accessibility Access", action: #selector(openAccessibilitySettings), keyEquivalent: "")
         menu.addItem(.separator())
@@ -61,10 +63,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Use OrbitDrop directly in Finder"
-        alert.informativeText = "1. Select a file on the Desktop or in Finder.\n2. Hold the right mouse button until the wheel appears.\n3. Glide to an action while still holding, then release to run it.\n\nYou can also right-click and release, move over an action, and left-click it. Press Escape to close the wheel. All processing stays on this Mac."
+        alert.informativeText = "1. Select one or more files on the Desktop or in Finder.\n2. Hold \(eventController.triggerKeyLabel) for a moment until the wheel appears.\n3. Keep holding, move the pointer onto an action, then release the key to run it.\n\nChoose a different trigger key from the OrbitDrop menu at any time. Press Escape to close the wheel. All processing stays on this Mac."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Got it")
         alert.runModal()
+    }
+
+    @objc private func changeTriggerKey() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Choose your OrbitDrop trigger key"
+        alert.informativeText = "Select a key to hold after choosing files in Finder. Space is the recommended default."
+        let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 220, height: 28))
+        picker.addItems(withTitles: TriggerKey.supported.map(\.label))
+        if let index = TriggerKey.supported.firstIndex(of: TriggerKey.current) {
+            picker.selectItem(at: index)
+        }
+        alert.accessoryView = picker
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let selected = TriggerKey.supported[picker.indexOfSelectedItem]
+        eventController.setTriggerKey(selected)
+        triggerMenuItem.title = "Trigger key: \(selected.label)…"
     }
 
     @objc private func openAccessibilitySettings() {

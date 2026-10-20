@@ -16,10 +16,20 @@ final class GlobalFinderGestureController {
     private var wheelVisible = false
     private var gestureSequence = 0
     private var isProcessing = false
+    private var triggerKey = TriggerKey.current
+    private var triggerHeld = false
+
+    var triggerKeyLabel: String { triggerKey.label }
+
+    func setTriggerKey(_ key: TriggerKey) {
+        dismiss()
+        triggerKey = key
+        TriggerKey.save(key)
+    }
 
     func start() {
         guard eventTap == nil else { return }
-        let types: [CGEventType] = [.rightMouseDown, .rightMouseDragged, .rightMouseUp, .mouseMoved, .leftMouseDown, .keyDown]
+        let types: [CGEventType] = [.mouseMoved, .keyDown, .keyUp]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let pointer = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(
@@ -54,29 +64,34 @@ final class GlobalFinderGestureController {
         }
 
         switch type {
-        case .rightMouseDown:
+        case .keyDown:
+            let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+            guard keyCode == triggerKey.code else {
+                if wheelVisible, keyCode == 53 {
+                    dismiss()
+                    return nil
+                }
+                return Unmanaged.passUnretained(event)
+            }
+            if triggerHeld { return nil }
             guard !isProcessing, FinderBridge.isFinderFrontmost else { return Unmanaged.passUnretained(event) }
             let point = NSEvent.mouseLocation
+            triggerHeld = true
             gestureOrigin = point
             activeFiles = []
             wheelVisible = false
             panel.hide(animated: false)
             gestureSequence += 1
             let sequence = gestureSequence
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
-                guard let self, self.gestureSequence == sequence, self.gestureOrigin != nil,
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                guard let self, self.triggerHeld, self.gestureSequence == sequence, self.gestureOrigin != nil,
                       FinderBridge.isFinderFrontmost else { return }
                 let files = FinderBridge.selectedURLs()
-                guard !files.isEmpty else { return }
+                guard self.triggerHeld, self.gestureSequence == sequence, !files.isEmpty else { return }
                 self.activeFiles = files
                 self.wheelVisible = true
                 self.panel.show(at: point, files: files)
             }
-            return Unmanaged.passUnretained(event)
-
-        case .rightMouseDragged:
-            guard wheelVisible else { return Unmanaged.passUnretained(event) }
-            panel.updateHighlight(globalPoint: NSEvent.mouseLocation)
             return nil
 
         case .mouseMoved:
@@ -84,32 +99,17 @@ final class GlobalFinderGestureController {
             panel.updateHighlight(globalPoint: NSEvent.mouseLocation)
             return Unmanaged.passUnretained(event)
 
-        case .rightMouseUp:
-            guard wheelVisible else {
+        case .keyUp:
+            let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+            guard keyCode == triggerKey.code, triggerHeld else { return Unmanaged.passUnretained(event) }
+            triggerHeld = false
+            if wheelVisible {
+                perform(panel.action(globalPoint: NSEvent.mouseLocation))
+            } else {
                 gestureSequence += 1
                 gestureOrigin = nil
-                return Unmanaged.passUnretained(event)
+                activeFiles = []
             }
-            let point = NSEvent.mouseLocation
-            let movement = gestureOrigin.map { hypot(point.x - $0.x, point.y - $0.y) } ?? 0
-            if movement < 22 {
-                gestureOrigin = nil
-                panel.updateHighlight(globalPoint: NSPoint(x: -10_000, y: -10_000))
-                return nil
-            }
-            perform(panel.action(globalPoint: point))
-            return nil
-
-        case .leftMouseDown:
-            guard wheelVisible else { return Unmanaged.passUnretained(event) }
-            perform(panel.action(globalPoint: NSEvent.mouseLocation))
-            return nil
-
-        case .keyDown:
-            guard wheelVisible, event.getIntegerValueField(.keyboardEventKeycode) == 53 else {
-                return Unmanaged.passUnretained(event)
-            }
-            dismiss()
             return nil
 
         default:
@@ -125,6 +125,7 @@ final class GlobalFinderGestureController {
         }
         gestureSequence += 1
         wheelVisible = false
+        triggerHeld = false
         gestureOrigin = nil
         isProcessing = true
         panel.showProcessing(action)
@@ -157,6 +158,7 @@ final class GlobalFinderGestureController {
     private func dismiss() {
         gestureSequence += 1
         wheelVisible = false
+        triggerHeld = false
         gestureOrigin = nil
         activeFiles = []
         panel.hide()

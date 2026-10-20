@@ -14,6 +14,9 @@ internal static class NativeMethods
     internal const int WmRightButtonDown = 0x0204;
     internal const int WmRightButtonUp = 0x0205;
     internal const int WmKeyDown = 0x0100;
+    internal const int WmKeyUp = 0x0101;
+    internal const int WmSysKeyDown = 0x0104;
+    internal const int WmSysKeyUp = 0x0105;
     internal const int VkEscape = 0x1B;
     internal const int GwlExStyle = -20;
     internal const int WsExToolWindow = 0x00000080;
