@@ -26,6 +26,7 @@ internal sealed class OrbitController : IDisposable
     private readonly Icon _trayIcon;
     private readonly RadialWindow _wheel = new();
     private readonly GlobalInputHook _input;
+    private readonly UpdateChecker _updates;
     private IReadOnlyList<string> _files = Array.Empty<string>();
     private System.Drawing.Point _origin;
     private bool _tracking;
@@ -34,9 +35,11 @@ internal sealed class OrbitController : IDisposable
     internal OrbitController(WpfApplication application)
     {
         _application = application;
+        _updates = new UpdateChecker(application.Dispatcher);
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("OrbitDrop is active").Enabled = false;
         menu.Items.Add("How to use", null, (_, _) => ShowHelp());
+        menu.Items.Add("Check for Updates…", null, (_, _) => _updates.Check(true));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit OrbitDrop", null, (_, _) => _application.Shutdown());
 
@@ -53,6 +56,7 @@ internal sealed class OrbitController : IDisposable
 
         _input = new GlobalInputHook(OnRightDown, OnMouseMove, OnRightUp, OnLeftDown, OnEscape);
         _input.Start();
+        _updates.Start();
     }
 
     private bool OnRightDown(System.Drawing.Point point)
@@ -169,6 +173,7 @@ internal sealed class OrbitController : IDisposable
     public void Dispose()
     {
         _input.Dispose();
+        _updates.Dispose();
         _wheel.Close();
         _tray.Visible = false;
         _tray.Dispose();

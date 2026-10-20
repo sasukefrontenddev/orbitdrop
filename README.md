@@ -4,6 +4,8 @@ Native, privacy-first desktop file tools for macOS and Windows.
 
 OrbitDrop adds a transparent radial command wheel to Finder and File Explorer. Select a file, right-click, glide to an action, and release. Conversion and editing happen entirely on the computer—no uploads, accounts, analytics, cookies, or telemetry.
 
+The app checks the official GitHub Releases API for updates at startup and every six hours while it is running. This best-effort check contains no file data or tracking identifier, can also be triggered from the menu-bar/tray menu, and never blocks offline file operations.
+
 [Download OrbitDrop](https://orbitdropapp.vercel.app/#download) · [Product website](https://orbitdropapp.vercel.app) · [Website source](https://github.com/sasukefrontenddev/orbitdrop-website)
 
 ![OrbitDrop transparent radial command wheel](docs/orbitdrop-wheel.png)
@@ -80,8 +82,6 @@ Every pull request and change to `main` builds and tests the native macOS and Wi
 3. The successful `main` build automatically creates and publishes the matching release. **Actions → Desktop release → Run workflow** is available only as a recovery option.
 
 The release workflow creates the version tag, rebuilds both apps on their native operating systems, generates SHA-256 checksums, publishes build-provenance attestations, and uploads the installers to GitHub Releases. The product website reads the latest verified release automatically, so its download buttons, version number, file sizes, and checksum directory update without copying installers into the website repository.
-
-macOS releases are Developer ID signed, hardened, notarized by Apple, and stapled before publication. The repository must define `APPLE_CERTIFICATE_P12` (base64-encoded Developer ID Application certificate), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` as Actions secrets. The release intentionally fails instead of publishing an unsigned Mac build when any credential is missing.
 
 ## Repository policy
 

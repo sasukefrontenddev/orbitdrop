@@ -6,6 +6,7 @@ OrbitDrop is designed so private files never need to leave the user's computer.
 
 - Files are converted, compressed, archived, copied, and edited locally.
 - There is no file-upload service or cloud conversion backend.
+- The app makes a small, anonymous request to the official GitHub Releases API at startup and every six hours while running to learn whether a newer version exists. It sends no files, filenames, analytics identifiers, or account data. Core file tools continue to work offline if the request fails.
 - There are no accounts, advertising identifiers, analytics SDKs, or telemetry events.
 - OrbitDrop does not sell, rent, profile, or share user data.
 - Original files are not overwritten; outputs are created beside them.
