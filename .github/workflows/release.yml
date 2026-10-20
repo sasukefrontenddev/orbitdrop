@@ -152,4 +152,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: gh release create "$TAG" dist/* --verify-tag --title "OrbitDrop $VERSION" --generate-notes
+        run: gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "OrbitDrop $VERSION" --generate-notes
