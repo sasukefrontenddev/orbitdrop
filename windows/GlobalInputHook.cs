@@ -5,28 +5,28 @@ namespace OrbitDrop.Native;
 
 internal sealed class GlobalInputHook : IDisposable
 {
-    private readonly Func<System.Drawing.Point, bool> _rightDown;
     private readonly Func<System.Drawing.Point, bool> _mouseMove;
-    private readonly Func<System.Drawing.Point, bool> _rightUp;
-    private readonly Func<System.Drawing.Point, bool> _leftDown;
+    private readonly Func<bool> _triggerDown;
+    private readonly Func<bool> _triggerUp;
     private readonly Func<bool> _escape;
     private readonly NativeMethods.HookProcedure _mouseProcedure;
     private readonly NativeMethods.HookProcedure _keyboardProcedure;
     private IntPtr _mouseHook;
     private IntPtr _keyboardHook;
+    internal int TriggerVirtualKey { get; set; }
 
     internal GlobalInputHook(
-        Func<System.Drawing.Point, bool> rightDown,
         Func<System.Drawing.Point, bool> mouseMove,
-        Func<System.Drawing.Point, bool> rightUp,
-        Func<System.Drawing.Point, bool> leftDown,
-        Func<bool> escape)
+        Func<bool> triggerDown,
+        Func<bool> triggerUp,
+        Func<bool> escape,
+        int triggerVirtualKey)
     {
-        _rightDown = rightDown;
         _mouseMove = mouseMove;
-        _rightUp = rightUp;
-        _leftDown = leftDown;
+        _triggerDown = triggerDown;
+        _triggerUp = triggerUp;
         _escape = escape;
+        TriggerVirtualKey = triggerVirtualKey;
         _mouseProcedure = MouseCallback;
         _keyboardProcedure = KeyboardCallback;
     }
@@ -48,10 +48,7 @@ internal sealed class GlobalInputHook : IDisposable
             var point = new System.Drawing.Point(hookData.Point.X, hookData.Point.Y);
             var handled = message.ToInt32() switch
             {
-                NativeMethods.WmRightButtonDown => _rightDown(point),
                 NativeMethods.WmMouseMove => _mouseMove(point),
-                NativeMethods.WmRightButtonUp => _rightUp(point),
-                NativeMethods.WmLeftButtonDown => _leftDown(point),
                 _ => false
             };
             if (handled) return new IntPtr(1);
@@ -61,8 +58,19 @@ internal sealed class GlobalInputHook : IDisposable
 
     private IntPtr KeyboardCallback(int code, IntPtr message, IntPtr data)
     {
-        if (code >= 0 && message.ToInt32() == NativeMethods.WmKeyDown && Marshal.ReadInt32(data) == NativeMethods.VkEscape && _escape())
-            return new IntPtr(1);
+        if (code >= 0)
+        {
+            var messageCode = message.ToInt32();
+            var virtualKey = Marshal.ReadInt32(data);
+            var handled = false;
+            if (virtualKey == NativeMethods.VkEscape && messageCode == NativeMethods.WmKeyDown)
+                handled = _escape();
+            else if (virtualKey == TriggerVirtualKey && (messageCode == NativeMethods.WmKeyDown || messageCode == NativeMethods.WmSysKeyDown))
+                handled = _triggerDown();
+            else if (virtualKey == TriggerVirtualKey && (messageCode == NativeMethods.WmKeyUp || messageCode == NativeMethods.WmSysKeyUp))
+                handled = _triggerUp();
+            if (handled) return new IntPtr(1);
+        }
         return NativeMethods.CallNextHookEx(_keyboardHook, code, message, data);
     }
 

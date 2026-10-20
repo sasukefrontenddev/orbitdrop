@@ -2,7 +2,7 @@
 
 Native, privacy-first desktop file tools for macOS and Windows.
 
-OrbitDrop adds a transparent radial command wheel to Finder and File Explorer. Select a file, right-click, glide to an action, and release. Conversion and editing happen entirely on the computer—no uploads, accounts, analytics, cookies, or telemetry.
+OrbitDrop adds a transparent radial command wheel to Finder and File Explorer. Select a file, hold your chosen keyboard trigger, move to an action, and release the key. Conversion and editing happen entirely on the computer—no uploads, accounts, analytics, cookies, or telemetry.
 
 The app checks the official GitHub Releases API for updates at startup and every six hours while it is running. This best-effort check contains no file data or tracking identifier, can also be triggered from the menu-bar/tray menu, and never blocks offline file operations.
 
@@ -23,6 +23,7 @@ The app checks the official GitHub Releases API for updates at startup and every
 - Native AppKit utility for macOS 13+ on Apple Silicon and Intel.
 - Native WPF utility for 64-bit Windows 10 and Windows 11.
 - Dark, transparent command wheel with native/vector icons.
+- Configurable Space, F6–F12, or A–Z hold key saved locally on the computer.
 - Visible local-processing, success, and failure states.
 - New output files are created beside the original; source files are not overwritten.
 - Works offline after installation.
@@ -36,7 +37,16 @@ Download the latest installers from the [OrbitDrop releases page](https://github
 1. Download and unzip the universal macOS package.
 2. Move `OrbitDrop.app` to Applications.
 3. Control-click the app, choose **Open**, and confirm.
-4. Grant Accessibility access when macOS requests it so OrbitDrop can detect the Finder gesture.
+4. Grant Accessibility access when macOS requests it so OrbitDrop can detect the chosen trigger key.
+
+## Use
+
+1. Select one or more files in Finder or File Explorer.
+2. Hold the configured trigger key for a moment; Space is the default.
+3. Keep holding and move the pointer onto the desired wheel action.
+4. Release the key to perform the highlighted action.
+
+Change the trigger from the OrbitDrop menu-bar or system-tray menu. Press Escape to cancel an open wheel.
 
 ### Windows
 

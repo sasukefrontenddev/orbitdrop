@@ -27,18 +27,30 @@ internal sealed class OrbitController : IDisposable
     private readonly RadialWindow _wheel = new();
     private readonly GlobalInputHook _input;
     private readonly UpdateChecker _updates;
+    private readonly Forms.ToolStripMenuItem _triggerMenu;
     private IReadOnlyList<string> _files = Array.Empty<string>();
     private System.Drawing.Point _origin;
-    private bool _tracking;
+    private TriggerKeyOption _triggerKey;
+    private int _holdSequence;
+    private bool _triggerHeld;
     private bool _processing;
 
     internal OrbitController(WpfApplication application)
     {
         _application = application;
         _updates = new UpdateChecker(application.Dispatcher);
+        _triggerKey = TriggerKeySettings.Load();
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("OrbitDrop is active").Enabled = false;
         menu.Items.Add("How to use", null, (_, _) => ShowHelp());
+        _triggerMenu = new Forms.ToolStripMenuItem($"Trigger key: {_triggerKey.Label}");
+        foreach (var option in TriggerKeyOption.Supported)
+        {
+            var item = new Forms.ToolStripMenuItem(option.Label) { Checked = option == _triggerKey };
+            item.Click += (_, _) => SetTriggerKey(option);
+            _triggerMenu.DropDownItems.Add(item);
+        }
+        menu.Items.Add(_triggerMenu);
         menu.Items.Add("Check for Updates…", null, (_, _) => _updates.Check(true));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit OrbitDrop", null, (_, _) => _application.Shutdown());
@@ -48,68 +60,61 @@ internal sealed class OrbitController : IDisposable
             : SystemIcons.Application;
         _tray = new Forms.NotifyIcon
         {
-            Text = "OrbitDrop — right-click selected File Explorer items",
+            Text = $"OrbitDrop — hold {_triggerKey.Label} on selected files",
             Icon = _trayIcon,
             ContextMenuStrip = menu,
             Visible = true
         };
 
-        _input = new GlobalInputHook(OnRightDown, OnMouseMove, OnRightUp, OnLeftDown, OnEscape);
+        _input = new GlobalInputHook(OnMouseMove, OnTriggerDown, OnTriggerUp, OnEscape, _triggerKey.VirtualKey);
         _input.Start();
         _updates.Start();
     }
 
-    private bool OnRightDown(System.Drawing.Point point)
+    private bool OnTriggerDown()
     {
+        if (_triggerHeld) return true;
         if (_processing || !ExplorerBridge.IsExplorerForeground()) return false;
-        _origin = point;
-        _tracking = true;
+        _origin = Forms.Cursor.Position;
+        _triggerHeld = true;
+        var sequence = ++_holdSequence;
         _wheel.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
         {
-            var selected = ExplorerBridge.SelectedPaths();
-            if (!_tracking || selected.Count == 0)
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            timer.Tick += (_, _) =>
             {
-                _tracking = false;
-                return;
-            }
-            _files = selected;
-            _wheel.ShowAt(point, selected);
+                timer.Stop();
+                if (!_triggerHeld || sequence != _holdSequence || !ExplorerBridge.IsExplorerForeground()) return;
+                var selected = ExplorerBridge.SelectedPaths();
+                if (!_triggerHeld || sequence != _holdSequence || selected.Count == 0) return;
+                _files = selected;
+                _wheel.ShowAt(_origin, selected);
+            };
+            timer.Start();
         });
-        return false;
+        return true;
     }
 
     private bool OnMouseMove(System.Drawing.Point point)
     {
         if (!_wheel.IsVisible) return false;
         _wheel.UpdateHighlight(point);
-        return _tracking;
+        return false;
     }
 
-    private bool OnRightUp(System.Drawing.Point point)
+    private bool OnTriggerUp()
     {
-        if (!_tracking) return false;
-        if (!_wheel.IsVisible)
+        if (!_triggerHeld) return false;
+        _triggerHeld = false;
+        _holdSequence++;
+        if (_wheel.IsVisible)
         {
-            _tracking = false;
-            return false;
+            Run(_wheel.ActionAt(Forms.Cursor.Position));
         }
-
-        var moved = Math.Sqrt(Math.Pow(point.X - _origin.X, 2) + Math.Pow(point.Y - _origin.Y, 2));
-        if (moved < 22)
+        else
         {
-            _tracking = false;
-            _wheel.UpdateHighlight(new System.Drawing.Point(-10000, -10000));
-            return true;
+            _files = Array.Empty<string>();
         }
-
-        Run(_wheel.ActionAt(point));
-        return true;
-    }
-
-    private bool OnLeftDown(System.Drawing.Point point)
-    {
-        if (!_wheel.IsVisible) return false;
-        Run(_wheel.ActionAt(point));
         return true;
     }
 
@@ -128,7 +133,7 @@ internal sealed class OrbitController : IDisposable
             Dismiss();
             return;
         }
-        _tracking = false;
+        _triggerHeld = false;
         _processing = true;
         _files = Array.Empty<string>();
         _wheel.ShowProcessing(action.Value);
@@ -148,9 +153,22 @@ internal sealed class OrbitController : IDisposable
 
     private void Dismiss()
     {
-        _tracking = false;
+        _triggerHeld = false;
+        _holdSequence++;
         _files = Array.Empty<string>();
         _wheel.HideSmooth();
+    }
+
+    private void SetTriggerKey(TriggerKeyOption option)
+    {
+        Dismiss();
+        _triggerKey = option;
+        _input.TriggerVirtualKey = option.VirtualKey;
+        TriggerKeySettings.Save(option);
+        _triggerMenu.Text = $"Trigger key: {option.Label}";
+        foreach (Forms.ToolStripMenuItem item in _triggerMenu.DropDownItems)
+            item.Checked = item.Text == option.Label;
+        _tray.Text = $"OrbitDrop — hold {option.Label} on selected files";
     }
 
     private void Notify(string title, string message, Forms.ToolTipIcon icon)
@@ -161,10 +179,10 @@ internal sealed class OrbitController : IDisposable
         _tray.ShowBalloonTip(3500);
     }
 
-    private static void ShowHelp()
+    private void ShowHelp()
     {
         System.Windows.MessageBox.Show(
-            "1. Select a file in File Explorer.\n2. Hold the right mouse button until the wheel appears.\n3. Glide to an action while still holding, then release to run it.\n\nYou can also right-click and release, move over an action, and left-click it. Press Escape to close the wheel. Files never leave this PC.",
+            $"1. Select one or more files in File Explorer.\n2. Hold {_triggerKey.Label} for a moment until the wheel appears.\n3. Keep holding, move the pointer onto an action, then release the key to run it.\n\nChoose a different trigger key from the OrbitDrop tray menu at any time. Press Escape to close the wheel. Files never leave this PC.",
             "OrbitDrop — native Windows utility",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
