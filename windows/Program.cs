@@ -26,6 +26,7 @@ internal sealed class OrbitController : IDisposable
     private readonly Icon _trayIcon;
     private readonly RadialWindow _wheel = new();
     private readonly GlobalInputHook _input;
+    private readonly UpdateChecker _updates;
     private IReadOnlyList<string> _files = Array.Empty<string>();
     private System.Drawing.Point _origin;
     private bool _tracking;
@@ -34,9 +35,11 @@ internal sealed class OrbitController : IDisposable
     internal OrbitController(WpfApplication application)
     {
         _application = application;
+        _updates = new UpdateChecker(application.Dispatcher);
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("OrbitDrop is active").Enabled = false;
         menu.Items.Add("How to use", null, (_, _) => ShowHelp());
+        menu.Items.Add("Check for Updates…", null, (_, _) => _updates.Check(true));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit OrbitDrop", null, (_, _) => _application.Shutdown());
 
@@ -53,6 +56,7 @@ internal sealed class OrbitController : IDisposable
 
         _input = new GlobalInputHook(OnRightDown, OnMouseMove, OnRightUp, OnLeftDown, OnEscape);
         _input.Start();
+        _updates.Start();
     }
 
     private bool OnRightDown(System.Drawing.Point point)
@@ -160,7 +164,7 @@ internal sealed class OrbitController : IDisposable
     private static void ShowHelp()
     {
         System.Windows.MessageBox.Show(
-            "1. Select a file in File Explorer.\n2. Right-click it.\n3. Drag toward a conversion or image-editing action and release.\n\nThe transparent wheel includes PDF, PNG, JPG, TIFF, BMP, ZIP, compression, resize, rotate, flip, grayscale, and copy. Files never leave this PC.",
+            "1. Select a file in File Explorer.\n2. Hold the right mouse button until the wheel appears.\n3. Glide to an action while still holding, then release to run it.\n\nYou can also right-click and release, move over an action, and left-click it. Press Escape to close the wheel. Files never leave this PC.",
             "OrbitDrop — native Windows utility",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
@@ -169,6 +173,7 @@ internal sealed class OrbitController : IDisposable
     public void Dispose()
     {
         _input.Dispose();
+        _updates.Dispose();
         _wheel.Close();
         _tray.Visible = false;
         _tray.Dispose();

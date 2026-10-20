@@ -19,7 +19,7 @@ final class GlobalFinderGestureController {
 
     func start() {
         guard eventTap == nil else { return }
-        let types: [CGEventType] = [.rightMouseDown, .rightMouseDragged, .rightMouseUp, .leftMouseDown, .keyDown]
+        let types: [CGEventType] = [.rightMouseDown, .rightMouseDragged, .rightMouseUp, .mouseMoved, .leftMouseDown, .keyDown]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let pointer = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(
@@ -78,6 +78,11 @@ final class GlobalFinderGestureController {
             guard wheelVisible else { return Unmanaged.passUnretained(event) }
             panel.updateHighlight(globalPoint: NSEvent.mouseLocation)
             return nil
+
+        case .mouseMoved:
+            guard wheelVisible else { return Unmanaged.passUnretained(event) }
+            panel.updateHighlight(globalPoint: NSEvent.mouseLocation)
+            return Unmanaged.passUnretained(event)
 
         case .rightMouseUp:
             guard wheelVisible else {
