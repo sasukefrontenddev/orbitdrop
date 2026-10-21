@@ -7,7 +7,15 @@ private let orbitEventCallback: CGEventTapCallBack = { _, type, event, userInfo 
     return controller.handle(type: type, event: event)
 }
 
+enum KeyboardInterceptionStatus: Equatable {
+    case needsAccessibility
+    case verifying
+    case ready
+    case failed
+}
+
 final class GlobalFinderGestureController {
+    private static let selfTestMarker: Int64 = 0x4F52424954445250
     private let panel = RadialPanel()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -17,19 +25,33 @@ final class GlobalFinderGestureController {
     private var gestureSequence = 0
     private var isProcessing = false
     private var triggerKey = TriggerKey.current
-    private var triggerHeld = false
+    private var keyGate = KeyboardInterceptionGate(triggerCode: TriggerKey.current.code)
+    private var selfTestGeneration = 0
+    private var selfTestSawKeyDown = false
+    private var selfTestCompletions: [(Bool) -> Void] = []
+
+    var onStatusChange: ((KeyboardInterceptionStatus) -> Void)?
+    private(set) var status: KeyboardInterceptionStatus = .verifying {
+        didSet { if status != oldValue { onStatusChange?(status) } }
+    }
 
     var triggerKeyLabel: String { triggerKey.label }
 
     func setTriggerKey(_ key: TriggerKey) {
         dismiss()
         triggerKey = key
+        keyGate.updateTrigger(key.code)
         TriggerKey.save(key)
     }
 
     func start() {
         guard eventTap == nil else { return }
-        let types: [CGEventType] = [.mouseMoved, .keyDown, .keyUp]
+        guard AXIsProcessTrusted() else {
+            status = .needsAccessibility
+            return
+        }
+        status = .verifying
+        let types: [CGEventType] = [.mouseMoved, .keyDown, .keyUp, .flagsChanged]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let pointer = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(
@@ -40,6 +62,7 @@ final class GlobalFinderGestureController {
             callback: orbitEventCallback,
             userInfo: pointer
         ) else {
+            status = .failed
             return
         }
         eventTap = tap
@@ -48,6 +71,7 @@ final class GlobalFinderGestureController {
             CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         }
         CGEvent.tapEnable(tap: tap, enable: true)
+        runInterceptionSelfTest()
     }
 
     func stop() {
@@ -55,44 +79,80 @@ final class GlobalFinderGestureController {
         if let runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes) }
         runLoopSource = nil
         eventTap = nil
+        keyGate.cancel()
+        status = AXIsProcessTrusted() ? .failed : .needsAccessibility
+    }
+
+    func runInterceptionSelfTest(completion: ((Bool) -> Void)? = nil) {
+        if let completion { selfTestCompletions.append(completion) }
+        guard let eventTap, CGEvent.tapIsEnabled(tap: eventTap) else {
+            completeSelfTest(success: false)
+            return
+        }
+        status = .verifying
+        selfTestGeneration += 1
+        let generation = selfTestGeneration
+        selfTestSawKeyDown = false
+        for isDown in [true, false] {
+            guard let testEvent = CGEvent(keyboardEventSource: nil, virtualKey: 79, keyDown: isDown) else { continue }
+            testEvent.setIntegerValueField(.eventSourceUserData, value: Self.selfTestMarker)
+            testEvent.post(tap: .cghidEventTap)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            guard let self, generation == self.selfTestGeneration, self.status == .verifying else { return }
+            self.completeSelfTest(success: false)
+        }
     }
 
     func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if event.getIntegerValueField(.eventSourceUserData) == Self.selfTestMarker {
+            if type == .keyDown { selfTestSawKeyDown = true }
+            if type == .keyUp, selfTestSawKeyDown { completeSelfTest(success: true) }
+            return nil
+        }
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
+            status = .verifying
+            if let eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+                runInterceptionSelfTest()
+            }
             return Unmanaged.passUnretained(event)
         }
 
         switch type {
         case .keyDown:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            guard keyCode == triggerKey.code else {
+            switch keyGate.keyDown(code: keyCode, finderFrontmost: FinderBridge.isFinderFrontmost, processing: isProcessing) {
+            case .began:
+                beginGesture()
+                return nil
+            case .repeated:
+                return nil
+            case .ignored, .ended:
                 if wheelVisible, keyCode == 53 {
                     dismiss()
                     return nil
                 }
                 return Unmanaged.passUnretained(event)
             }
-            if triggerHeld { return nil }
-            guard !isProcessing, FinderBridge.isFinderFrontmost else { return Unmanaged.passUnretained(event) }
-            let point = NSEvent.mouseLocation
-            triggerHeld = true
-            gestureOrigin = point
-            activeFiles = []
-            wheelVisible = false
-            panel.hide(animated: false)
-            gestureSequence += 1
-            let sequence = gestureSequence
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-                guard let self, self.triggerHeld, self.gestureSequence == sequence, self.gestureOrigin != nil,
-                      FinderBridge.isFinderFrontmost else { return }
-                let files = FinderBridge.selectedURLs()
-                guard self.triggerHeld, self.gestureSequence == sequence, !files.isEmpty else { return }
-                self.activeFiles = files
-                self.wheelVisible = true
-                self.panel.show(at: point, files: files)
+
+        case .flagsChanged:
+            let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+            guard TriggerKey.isModifier(code: keyCode), keyCode == triggerKey.code else {
+                return Unmanaged.passUnretained(event)
             }
-            return nil
+            switch keyGate.modifierChanged(code: keyCode, finderFrontmost: FinderBridge.isFinderFrontmost, processing: isProcessing) {
+            case .began:
+                beginGesture()
+                return nil
+            case .ended:
+                endGesture()
+                return nil
+            case .repeated:
+                return nil
+            case .ignored:
+                return Unmanaged.passUnretained(event)
+            }
 
         case .mouseMoved:
             guard wheelVisible else { return Unmanaged.passUnretained(event) }
@@ -101,20 +161,50 @@ final class GlobalFinderGestureController {
 
         case .keyUp:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            guard keyCode == triggerKey.code, triggerHeld else { return Unmanaged.passUnretained(event) }
-            triggerHeld = false
-            if wheelVisible {
-                perform(panel.action(globalPoint: NSEvent.mouseLocation))
-            } else {
-                gestureSequence += 1
-                gestureOrigin = nil
-                activeFiles = []
-            }
+            guard keyGate.keyUp(code: keyCode) == .ended else { return Unmanaged.passUnretained(event) }
+            endGesture()
             return nil
 
         default:
             return Unmanaged.passUnretained(event)
         }
+    }
+
+    private func beginGesture() {
+        let point = NSEvent.mouseLocation
+        gestureOrigin = point
+        activeFiles = []
+        wheelVisible = false
+        panel.hide(animated: false)
+        gestureSequence += 1
+        let sequence = gestureSequence
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, self.keyGate.isHeld, self.gestureSequence == sequence, self.gestureOrigin != nil,
+                  FinderBridge.isFinderFrontmost else { return }
+            let files = FinderBridge.selectedURLs()
+            guard self.keyGate.isHeld, self.gestureSequence == sequence, !files.isEmpty else { return }
+            self.activeFiles = files
+            self.wheelVisible = true
+            self.panel.show(at: point, files: files)
+        }
+    }
+
+    private func endGesture() {
+        if wheelVisible {
+            perform(panel.action(globalPoint: NSEvent.mouseLocation))
+        } else {
+            gestureSequence += 1
+            gestureOrigin = nil
+            activeFiles = []
+        }
+    }
+
+    private func completeSelfTest(success: Bool) {
+        selfTestGeneration += 1
+        status = success ? .ready : (AXIsProcessTrusted() ? .failed : .needsAccessibility)
+        let completions = selfTestCompletions
+        selfTestCompletions.removeAll()
+        completions.forEach { $0(success) }
     }
 
     private func perform(_ action: OrbitAction?) {
@@ -125,7 +215,7 @@ final class GlobalFinderGestureController {
         }
         gestureSequence += 1
         wheelVisible = false
-        triggerHeld = false
+        keyGate.cancel()
         gestureOrigin = nil
         isProcessing = true
         panel.showProcessing(action)
@@ -158,7 +248,7 @@ final class GlobalFinderGestureController {
     private func dismiss() {
         gestureSequence += 1
         wheelVisible = false
-        triggerHeld = false
+        keyGate.cancel()
         gestureOrigin = nil
         activeFiles = []
         panel.hide()

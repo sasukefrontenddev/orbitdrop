@@ -7,10 +7,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updateChecker: UpdateChecker!
     private var permissionTimer: Timer?
     private var triggerMenuItem: NSMenuItem!
+    private var keyboardStatusItem: NSMenuItem!
+    private var repairAccessItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        configureStatusItem()
         eventController = GlobalFinderGestureController()
+        configureStatusItem()
+        eventController.onStatusChange = { [weak self] status in
+            DispatchQueue.main.async { self?.updateKeyboardStatus(status) }
+        }
         updateChecker = UpdateChecker()
         updateChecker.start()
         requestAccessibilityAndStart()
@@ -29,14 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-        let status = NSMenuItem(title: "OrbitDrop is active", action: nil, keyEquivalent: "")
-        status.isEnabled = false
-        menu.addItem(status)
+        keyboardStatusItem = NSMenuItem(title: "Keyboard: checking…", action: nil, keyEquivalent: "")
+        keyboardStatusItem.isEnabled = false
+        menu.addItem(keyboardStatusItem)
         menu.addItem(.separator())
         menu.addItem(withTitle: "How to use OrbitDrop", action: #selector(showHelp), keyEquivalent: "")
-        triggerMenuItem = menu.addItem(withTitle: "Trigger key: \(TriggerKey.current.label)…", action: #selector(changeTriggerKey), keyEquivalent: "")
+        triggerMenuItem = menu.addItem(withTitle: "Record trigger key… (\(TriggerKey.current.label))", action: #selector(changeTriggerKey), keyEquivalent: "")
+        menu.addItem(withTitle: "Run keyboard self-test…", action: #selector(runKeyboardSelfTest), keyEquivalent: "")
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
-        menu.addItem(withTitle: "Enable Accessibility Access", action: #selector(openAccessibilitySettings), keyEquivalent: "")
+        repairAccessItem = menu.addItem(withTitle: "Repair Keyboard Access…", action: #selector(openAccessibilitySettings), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit OrbitDrop", action: #selector(quit), keyEquivalent: "q")
         menu.items.forEach { $0.target = self }
@@ -51,6 +57,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        updateKeyboardStatus(.needsAccessibility)
+
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] timer in
             guard AXIsProcessTrusted() else { return }
             timer.invalidate()
@@ -63,7 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Use OrbitDrop directly in Finder"
-        alert.informativeText = "1. Select one or more files on the Desktop or in Finder.\n2. Hold \(eventController.triggerKeyLabel) for a moment until the wheel appears.\n3. Keep holding, move the pointer onto an action, then release the key to run it.\n\nChoose a different trigger key from the OrbitDrop menu at any time. Press Escape to close the wheel. All processing stays on this Mac."
+        alert.informativeText = "1. Confirm the menu says Keyboard: ready.\n2. Select one or more files on the Desktop or in Finder.\n3. Hold \(eventController.triggerKeyLabel) for a quarter-second. OrbitDrop consumes the key, so Finder will not jump to another filename.\n4. Keep holding, move the pointer onto an action, then release the key to run it.\n\nUse Record trigger key to press the exact key you want. Press Escape to close the wheel unless Escape itself is your trigger. All processing stays on this Mac."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Got it")
         alert.runModal()
@@ -72,25 +80,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func changeTriggerKey() {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "Choose your OrbitDrop trigger key"
-        alert.informativeText = "Select a key to hold after choosing files in Finder. Space is the recommended default."
-        let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 220, height: 28))
-        picker.addItems(withTitles: TriggerKey.supported.map(\.label))
-        if let index = TriggerKey.supported.firstIndex(of: TriggerKey.current) {
-            picker.selectItem(at: index)
-        }
-        alert.accessoryView = picker
-        alert.addButton(withTitle: "Save")
+        alert.messageText = "Record your OrbitDrop trigger key"
+        alert.informativeText = "Press the physical key you want to hold in Finder. There is no preset list."
+        let recorder = TriggerKeyRecorderView(frame: NSRect(x: 0, y: 0, width: 390, height: 78))
+        alert.accessoryView = recorder
+        let saveButton = alert.addButton(withTitle: "Save")
+        saveButton.isEnabled = false
         alert.addButton(withTitle: "Cancel")
+        recorder.onRecord = { _ in saveButton.isEnabled = true }
+        DispatchQueue.main.async { alert.window.makeFirstResponder(recorder) }
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let selected = TriggerKey.supported[picker.indexOfSelectedItem]
+        guard let selected = recorder.recordedKey else { return }
         eventController.setTriggerKey(selected)
-        triggerMenuItem.title = "Trigger key: \(selected.label)…"
+        triggerMenuItem.title = "Record trigger key… (\(selected.label))"
+        if let button = statusItem.button {
+            button.toolTip = "OrbitDrop — hold \(selected.label) on selected Finder files"
+        }
+    }
+
+    @objc private func runKeyboardSelfTest() {
+        eventController.runInterceptionSelfTest { [weak self] success in
+            guard let self else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.messageText = success ? "Keyboard interception passed" : "Keyboard interception needs attention"
+            alert.informativeText = success
+                ? "OrbitDrop generated a harmless test keystroke, captured it at the system input layer, and suppressed it before Finder could receive it. Your \(self.eventController.triggerKeyLabel) hold interaction is ready."
+                : "OrbitDrop could not capture and suppress its harmless test keystroke. Open Keyboard Access, remove any stale OrbitDrop entry if present, add the copy in Applications, enable it, then reopen OrbitDrop and run this test again."
+            alert.alertStyle = success ? .informational : .warning
+            alert.addButton(withTitle: success ? "Done" : "Open Keyboard Access")
+            alert.addButton(withTitle: "Close")
+            if alert.runModal() == .alertFirstButtonReturn, !success { self.openAccessibilitySettings() }
+        }
     }
 
     @objc private func openAccessibilitySettings() {
+        let alert = NSAlert()
+        alert.messageText = "Allow OrbitDrop to intercept its trigger key"
+        alert.informativeText = "In Privacy & Security → Accessibility, enable the OrbitDrop copy located in your Applications folder. If OrbitDrop is already listed but the menu does not say Keyboard: ready, remove that stale entry, add OrbitDrop again, and reopen the app. This access is required to stop Finder’s letter-search behavior; it is not used to upload or record typing."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    private func updateKeyboardStatus(_ status: KeyboardInterceptionStatus) {
+        switch status {
+        case .ready:
+            keyboardStatusItem.title = "Keyboard: ready ✓"
+            repairAccessItem.isHidden = true
+        case .verifying:
+            keyboardStatusItem.title = "Keyboard: verifying…"
+            repairAccessItem.isHidden = false
+        case .needsAccessibility:
+            keyboardStatusItem.title = "Keyboard: access required ⚠"
+            repairAccessItem.isHidden = false
+        case .failed:
+            keyboardStatusItem.title = "Keyboard: interception failed ⚠"
+            repairAccessItem.isHidden = false
+        }
     }
 
     @objc private func checkForUpdates() {

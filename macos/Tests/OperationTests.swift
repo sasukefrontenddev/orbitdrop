@@ -5,6 +5,7 @@ struct OperationTests {
     static func main() throws {
         _ = NSApplication.shared
         let manager = FileManager.default
+        try testKeyboardInterception()
         let root = manager.temporaryDirectory.appendingPathComponent("OrbitDropTests-\(UUID().uuidString)", isDirectory: true)
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
@@ -66,5 +67,30 @@ struct OperationTests {
 
         let reduction = 100 - Int((Double(compressedBytes) / Double(originalBytes)) * 100)
         print("PASS: 12 actions; adaptive compression reduced the fixture by \(reduction)%")
+    }
+
+    private static func testKeyboardInterception() throws {
+        var gate = KeyboardInterceptionGate(triggerCode: 31) // Physical O key on macOS.
+        guard gate.keyDown(code: 31, finderFrontmost: true, processing: false) == .began,
+              gate.isHeld,
+              gate.keyDown(code: 31, finderFrontmost: true, processing: false) == .repeated,
+              gate.keyUp(code: 31) == .ended,
+              !gate.isHeld else {
+            throw OrbitFileError.conversionFailed("The configured letter key was not fully intercepted.")
+        }
+        guard gate.keyDown(code: 31, finderFrontmost: false, processing: false) == .ignored,
+              gate.keyDown(code: 0, finderFrontmost: true, processing: false) == .ignored else {
+            throw OrbitFileError.conversionFailed("Keyboard interception escaped its Finder/key scope.")
+        }
+        gate.updateTrigger(56) // Left Shift: modifier-key path.
+        guard gate.modifierChanged(code: 56, finderFrontmost: true, processing: false) == .began,
+              gate.modifierChanged(code: 56, finderFrontmost: true, processing: false) == .ended else {
+            throw OrbitFileError.conversionFailed("Modifier trigger keys were not intercepted.")
+        }
+        guard TriggerKey.label(for: 31, characters: "o") == "O",
+              TriggerKey.label(for: 123, characters: nil) == "Left Arrow" else {
+            throw OrbitFileError.conversionFailed("Recorded key labels were not preserved.")
+        }
+        print("PASS: configurable keyboard gate consumes O down/repeat/up and supports modifier keys")
     }
 }

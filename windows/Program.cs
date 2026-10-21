@@ -43,13 +43,8 @@ internal sealed class OrbitController : IDisposable
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("OrbitDrop is active").Enabled = false;
         menu.Items.Add("How to use", null, (_, _) => ShowHelp());
-        _triggerMenu = new Forms.ToolStripMenuItem($"Trigger key: {_triggerKey.Label}");
-        foreach (var option in TriggerKeyOption.Supported)
-        {
-            var item = new Forms.ToolStripMenuItem(option.Label) { Checked = option == _triggerKey };
-            item.Click += (_, _) => SetTriggerKey(option);
-            _triggerMenu.DropDownItems.Add(item);
-        }
+        _triggerMenu = new Forms.ToolStripMenuItem($"Record trigger key… ({_triggerKey.Label})");
+        _triggerMenu.Click += (_, _) => RecordTriggerKey();
         menu.Items.Add(_triggerMenu);
         menu.Items.Add("Check for Updates…", null, (_, _) => _updates.Check(true));
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -165,10 +160,15 @@ internal sealed class OrbitController : IDisposable
         _triggerKey = option;
         _input.TriggerVirtualKey = option.VirtualKey;
         TriggerKeySettings.Save(option);
-        _triggerMenu.Text = $"Trigger key: {option.Label}";
-        foreach (Forms.ToolStripMenuItem item in _triggerMenu.DropDownItems)
-            item.Checked = item.Text == option.Label;
+        _triggerMenu.Text = $"Record trigger key… ({option.Label})";
         _tray.Text = $"OrbitDrop — hold {option.Label} on selected files";
+    }
+
+    private void RecordTriggerKey()
+    {
+        using var recorder = new TriggerKeyRecorderForm(_triggerKey);
+        if (recorder.ShowDialog() == Forms.DialogResult.OK && recorder.RecordedKey is { } selected)
+            SetTriggerKey(selected);
     }
 
     private void Notify(string title, string message, Forms.ToolTipIcon icon)
@@ -182,7 +182,7 @@ internal sealed class OrbitController : IDisposable
     private void ShowHelp()
     {
         System.Windows.MessageBox.Show(
-            $"1. Select one or more files in File Explorer.\n2. Hold {_triggerKey.Label} for a moment until the wheel appears.\n3. Keep holding, move the pointer onto an action, then release the key to run it.\n\nChoose a different trigger key from the OrbitDrop tray menu at any time. Press Escape to close the wheel. Files never leave this PC.",
+            $"1. Select one or more files in File Explorer.\n2. Hold {_triggerKey.Label} for a quarter-second. OrbitDrop consumes the key so Explorer does not act on it.\n3. Keep holding, move the pointer onto an action, then release the key to run it.\n\nUse Record trigger key to press the exact key you want—there is no preset list. Press Escape to close the wheel unless Escape itself is your trigger. Files never leave this PC.",
             "OrbitDrop — native Windows utility",
             MessageBoxButton.OK,
             MessageBoxImage.Information);

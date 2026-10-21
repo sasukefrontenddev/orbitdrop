@@ -65,13 +65,25 @@ internal sealed class GlobalInputHook : IDisposable
             var handled = false;
             if (virtualKey == NativeMethods.VkEscape && messageCode == NativeMethods.WmKeyDown)
                 handled = _escape();
-            else if (virtualKey == TriggerVirtualKey && (messageCode == NativeMethods.WmKeyDown || messageCode == NativeMethods.WmSysKeyDown))
+            else if (MatchesTrigger(virtualKey) && (messageCode == NativeMethods.WmKeyDown || messageCode == NativeMethods.WmSysKeyDown))
                 handled = _triggerDown();
-            else if (virtualKey == TriggerVirtualKey && (messageCode == NativeMethods.WmKeyUp || messageCode == NativeMethods.WmSysKeyUp))
+            else if (MatchesTrigger(virtualKey) && (messageCode == NativeMethods.WmKeyUp || messageCode == NativeMethods.WmSysKeyUp))
                 handled = _triggerUp();
             if (handled) return new IntPtr(1);
         }
         return NativeMethods.CallNextHookEx(_keyboardHook, code, message, data);
+    }
+
+    private bool MatchesTrigger(int virtualKey)
+    {
+        if (virtualKey == TriggerVirtualKey) return true;
+        return TriggerVirtualKey switch
+        {
+            (int)System.Windows.Forms.Keys.ShiftKey => virtualKey is (int)System.Windows.Forms.Keys.LShiftKey or (int)System.Windows.Forms.Keys.RShiftKey,
+            (int)System.Windows.Forms.Keys.ControlKey => virtualKey is (int)System.Windows.Forms.Keys.LControlKey or (int)System.Windows.Forms.Keys.RControlKey,
+            (int)System.Windows.Forms.Keys.Menu => virtualKey is (int)System.Windows.Forms.Keys.LMenu or (int)System.Windows.Forms.Keys.RMenu,
+            _ => false
+        };
     }
 
     public void Dispose()
