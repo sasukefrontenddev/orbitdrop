@@ -16,6 +16,7 @@ enum KeyboardInterceptionStatus: Equatable {
 
 final class GlobalFinderGestureController {
     private static let selfTestMarker: Int64 = 0x4F52424954445250
+    private static let replayMarker: Int64 = 0x4F5242495452504C
     private let panel = RadialPanel()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -26,6 +27,7 @@ final class GlobalFinderGestureController {
     private var isProcessing = false
     private var triggerKey = TriggerKey.current
     private var keyGate = KeyboardInterceptionGate(triggerCode: TriggerKey.current.code)
+    private var pendingReplay: (code: CGKeyCode, flags: CGEventFlags)?
     private var selfTestGeneration = 0
     private var selfTestSawKeyDown = false
     private var selfTestCompletions: [(Bool) -> Void] = []
@@ -80,6 +82,7 @@ final class GlobalFinderGestureController {
         runLoopSource = nil
         eventTap = nil
         keyGate.cancel()
+        pendingReplay = nil
         status = AXIsProcessTrusted() ? .failed : .needsAccessibility
     }
 
@@ -110,6 +113,9 @@ final class GlobalFinderGestureController {
             if type == .keyUp, selfTestSawKeyDown { completeSelfTest(success: true) }
             return nil
         }
+        if event.getIntegerValueField(.eventSourceUserData) == Self.replayMarker {
+            return Unmanaged.passUnretained(event)
+        }
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             status = .verifying
             if let eventTap {
@@ -124,11 +130,12 @@ final class GlobalFinderGestureController {
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
             switch keyGate.keyDown(code: keyCode, finderFrontmost: FinderBridge.isFinderFrontmost, processing: isProcessing) {
             case .began:
+                pendingReplay = (keyCode, event.flags)
                 beginGesture()
                 return nil
             case .repeated:
                 return nil
-            case .ignored, .ended:
+            case .ignored, .endedShortPress, .endedGesture:
                 if wheelVisible, keyCode == 53 {
                     dismiss()
                     return nil
@@ -144,12 +151,12 @@ final class GlobalFinderGestureController {
             switch keyGate.modifierChanged(code: keyCode, finderFrontmost: FinderBridge.isFinderFrontmost, processing: isProcessing) {
             case .began:
                 beginGesture()
-                return nil
-            case .ended:
+                return Unmanaged.passUnretained(event)
+            case .endedShortPress, .endedGesture:
                 endGesture()
-                return nil
+                return Unmanaged.passUnretained(event)
             case .repeated:
-                return nil
+                return Unmanaged.passUnretained(event)
             case .ignored:
                 return Unmanaged.passUnretained(event)
             }
@@ -161,9 +168,20 @@ final class GlobalFinderGestureController {
 
         case .keyUp:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            guard keyGate.keyUp(code: keyCode) == .ended else { return Unmanaged.passUnretained(event) }
-            endGesture()
-            return nil
+            switch keyGate.keyUp(code: keyCode) {
+            case .endedShortPress:
+                let replay = pendingReplay
+                pendingReplay = nil
+                endGesture()
+                if let replay { replayShortPress(code: replay.code, flags: replay.flags) }
+                return nil
+            case .endedGesture:
+                pendingReplay = nil
+                endGesture()
+                return nil
+            case .ignored, .began, .repeated:
+                return Unmanaged.passUnretained(event)
+            }
 
         default:
             return Unmanaged.passUnretained(event)
@@ -184,8 +202,21 @@ final class GlobalFinderGestureController {
             let files = FinderBridge.selectedURLs()
             guard self.keyGate.isHeld, self.gestureSequence == sequence, !files.isEmpty else { return }
             self.activeFiles = files
+            self.keyGate.activateGesture()
             self.wheelVisible = true
             self.panel.show(at: point, files: files)
+        }
+    }
+
+    private func replayShortPress(code: CGKeyCode, flags: CGEventFlags) {
+        DispatchQueue.main.async {
+            let source = CGEventSource(stateID: .hidSystemState)
+            for isDown in [true, false] {
+                guard let replay = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: isDown) else { continue }
+                replay.flags = flags
+                replay.setIntegerValueField(.eventSourceUserData, value: Self.replayMarker)
+                replay.post(tap: .cghidEventTap)
+            }
         }
     }
 
@@ -216,6 +247,7 @@ final class GlobalFinderGestureController {
         gestureSequence += 1
         wheelVisible = false
         keyGate.cancel()
+        pendingReplay = nil
         gestureOrigin = nil
         isProcessing = true
         panel.showProcessing(action)
@@ -249,6 +281,7 @@ final class GlobalFinderGestureController {
         gestureSequence += 1
         wheelVisible = false
         keyGate.cancel()
+        pendingReplay = nil
         gestureOrigin = nil
         activeFiles = []
         panel.hide()

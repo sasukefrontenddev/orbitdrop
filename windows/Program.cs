@@ -109,6 +109,7 @@ internal sealed class OrbitController : IDisposable
         else
         {
             _files = Array.Empty<string>();
+            _input.ReplayTriggerTap();
         }
         return true;
     }
@@ -182,7 +183,7 @@ internal sealed class OrbitController : IDisposable
     private void ShowHelp()
     {
         System.Windows.MessageBox.Show(
-            $"1. Select one or more files in File Explorer.\n2. Hold {_triggerKey.Label} for a quarter-second. OrbitDrop consumes the key so Explorer does not act on it.\n3. Keep holding, move the pointer onto an action, then release the key to run it.\n\nUse Record trigger key to press the exact key you want—there is no preset list. Press Escape to close the wheel unless Escape itself is your trigger. Files never leave this PC.",
+            $"1. Select one or more files in File Explorer.\n2. Hold {_triggerKey.Label} for a quarter-second to open OrbitDrop.\n3. Keep holding, move the pointer onto an action, then release the key to run it.\n\nA quick press still behaves like the normal key. Modifier keys keep their normal behavior even while used as the trigger. Use Record trigger key to press the exact key you want—there is no preset list. Files never leave this PC.",
             "OrbitDrop — native Windows utility",
             MessageBoxButton.OK,
             MessageBoxImage.Information);

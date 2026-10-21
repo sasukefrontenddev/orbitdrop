@@ -5,6 +5,7 @@ namespace OrbitDrop.Native;
 
 internal sealed class GlobalInputHook : IDisposable
 {
+    private static readonly UIntPtr ReplayMarker = new(0x4F524249u);
     private readonly Func<System.Drawing.Point, bool> _mouseMove;
     private readonly Func<bool> _triggerDown;
     private readonly Func<bool> _triggerUp;
@@ -14,6 +15,7 @@ internal sealed class GlobalInputHook : IDisposable
     private IntPtr _mouseHook;
     private IntPtr _keyboardHook;
     internal int TriggerVirtualKey { get; set; }
+    internal bool TriggerIsModifier => IsModifierVirtualKey(TriggerVirtualKey);
 
     internal GlobalInputHook(
         Func<System.Drawing.Point, bool> mouseMove,
@@ -61,18 +63,61 @@ internal sealed class GlobalInputHook : IDisposable
         if (code >= 0)
         {
             var messageCode = message.ToInt32();
-            var virtualKey = Marshal.ReadInt32(data);
+            var hookData = Marshal.PtrToStructure<NativeMethods.KeyboardHookData>(data);
+            var virtualKey = (int)hookData.VirtualKey;
+            if (hookData.ExtraInfo == ReplayMarker)
+                return NativeMethods.CallNextHookEx(_keyboardHook, code, message, data);
             var handled = false;
             if (virtualKey == NativeMethods.VkEscape && messageCode == NativeMethods.WmKeyDown)
                 handled = _escape();
             else if (MatchesTrigger(virtualKey) && (messageCode == NativeMethods.WmKeyDown || messageCode == NativeMethods.WmSysKeyDown))
+            {
                 handled = _triggerDown();
+                if (TriggerIsModifier) handled = false;
+            }
             else if (MatchesTrigger(virtualKey) && (messageCode == NativeMethods.WmKeyUp || messageCode == NativeMethods.WmSysKeyUp))
+            {
                 handled = _triggerUp();
+                if (TriggerIsModifier) handled = false;
+            }
             if (handled) return new IntPtr(1);
         }
         return NativeMethods.CallNextHookEx(_keyboardHook, code, message, data);
     }
+
+    internal void ReplayTriggerTap()
+    {
+        if (TriggerIsModifier) return;
+        var virtualKey = (byte)TriggerVirtualKey;
+        var extended = IsExtendedVirtualKey(TriggerVirtualKey) ? NativeMethods.KeyEventfExtendedKey : 0u;
+        NativeMethods.keybd_event(virtualKey, 0, extended, ReplayMarker);
+        NativeMethods.keybd_event(virtualKey, 0, extended | NativeMethods.KeyEventfKeyUp, ReplayMarker);
+    }
+
+    private static bool IsModifierVirtualKey(int virtualKey) => virtualKey is
+        (int)System.Windows.Forms.Keys.ShiftKey or
+        (int)System.Windows.Forms.Keys.LShiftKey or
+        (int)System.Windows.Forms.Keys.RShiftKey or
+        (int)System.Windows.Forms.Keys.ControlKey or
+        (int)System.Windows.Forms.Keys.LControlKey or
+        (int)System.Windows.Forms.Keys.RControlKey or
+        (int)System.Windows.Forms.Keys.Menu or
+        (int)System.Windows.Forms.Keys.LMenu or
+        (int)System.Windows.Forms.Keys.RMenu or
+        (int)System.Windows.Forms.Keys.LWin or
+        (int)System.Windows.Forms.Keys.RWin;
+
+    private static bool IsExtendedVirtualKey(int virtualKey) => virtualKey is
+        (int)System.Windows.Forms.Keys.Insert or
+        (int)System.Windows.Forms.Keys.Delete or
+        (int)System.Windows.Forms.Keys.Home or
+        (int)System.Windows.Forms.Keys.End or
+        (int)System.Windows.Forms.Keys.PageUp or
+        (int)System.Windows.Forms.Keys.PageDown or
+        (int)System.Windows.Forms.Keys.Left or
+        (int)System.Windows.Forms.Keys.Right or
+        (int)System.Windows.Forms.Keys.Up or
+        (int)System.Windows.Forms.Keys.Down;
 
     private bool MatchesTrigger(int virtualKey)
     {

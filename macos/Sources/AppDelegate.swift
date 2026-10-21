@@ -71,7 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Use OrbitDrop directly in Finder"
-        alert.informativeText = "1. Confirm the menu says Keyboard: ready.\n2. Select one or more files on the Desktop or in Finder.\n3. Hold \(eventController.triggerKeyLabel) for a quarter-second. OrbitDrop consumes the key, so Finder will not jump to another filename.\n4. Keep holding, move the pointer onto an action, then release the key to run it.\n\nUse Record trigger key to press the exact key you want. Press Escape to close the wheel unless Escape itself is your trigger. All processing stays on this Mac."
+        alert.informativeText = "1. Confirm the menu says Keyboard: ready.\n2. Select one or more files on the Desktop or in Finder.\n3. Hold \(eventController.triggerKeyLabel) for a quarter-second to open OrbitDrop.\n4. Keep holding, move the pointer onto an action, then release the key to run it.\n\nA quick press still behaves like the normal key. Modifier keys keep their normal behavior even while used as the trigger. Use Record trigger key to press the exact key you want. All processing stays on this Mac."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Got it")
         alert.runModal()

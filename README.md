@@ -44,11 +44,11 @@ OrbitDrop supports common document inputs such as DOCX, RTF, TXT, and HTML for P
 ## How it works
 
 1. Select one or more files in Finder or File Explorer.
-2. Hold your trigger key for about a quarter of a second. **Space** is the default. Choose **Record trigger key** and press the physical key you want—letters, numbers, punctuation, arrows, modifiers, Space, and function keys are supported without a dropdown.
+2. Hold your trigger key for about a quarter of a second. **Space** is the default. Choose **Record trigger key** and press the physical key you want—letters, numbers, punctuation, arrows, modifiers, Space, and function keys are supported without a dropdown. A quick press remains a normal key press; only a deliberate hold activates OrbitDrop.
 3. Keep holding while you move the pointer onto an action.
 4. Release the key to run it, or press Escape to cancel.
 
-The chosen trigger is stored only on the computer. On macOS, the menu must say **Keyboard: ready ✓** before the gesture can work. OrbitDrop performs a harmless local self-test to confirm it can capture and suppress the trigger before Finder receives it; use **Run keyboard self-test…** at any time. Processing and result states appear directly in the wheel.
+The chosen trigger is stored only on the computer. OrbitDrop buffers a trigger press only while Finder or File Explorer is active: a quick tap is immediately replayed to the foreground app, while a deliberate hold opens the wheel. Other apps receive the key normally, and modifier triggers continue to pass through. On macOS, the menu must say **Keyboard: ready ✓** before the gesture can work. Use **Run keyboard self-test…** at any time. Processing and result states appear directly in the wheel.
 
 ## Download and install
 

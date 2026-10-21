@@ -57,20 +57,28 @@ enum KeyboardInterceptionDecision: Equatable {
     case ignored
     case began
     case repeated
-    case ended
+    case endedShortPress
+    case endedGesture
 }
 
 struct KeyboardInterceptionGate {
     private(set) var triggerCode: CGKeyCode
     private(set) var isHeld = false
+    private(set) var isGestureActive = false
 
     mutating func updateTrigger(_ code: CGKeyCode) {
         triggerCode = code
         isHeld = false
+        isGestureActive = false
     }
 
     mutating func cancel() {
         isHeld = false
+        isGestureActive = false
+    }
+
+    mutating func activateGesture() {
+        if isHeld { isGestureActive = true }
     }
 
     mutating func keyDown(code: CGKeyCode, finderFrontmost: Bool, processing: Bool) -> KeyboardInterceptionDecision {
@@ -82,8 +90,10 @@ struct KeyboardInterceptionGate {
 
     mutating func keyUp(code: CGKeyCode) -> KeyboardInterceptionDecision {
         guard code == triggerCode, isHeld else { return .ignored }
+        let completedGesture = isGestureActive
         isHeld = false
-        return .ended
+        isGestureActive = false
+        return completedGesture ? .endedGesture : .endedShortPress
     }
 
     mutating func modifierChanged(code: CGKeyCode, finderFrontmost: Bool, processing: Bool) -> KeyboardInterceptionDecision {
