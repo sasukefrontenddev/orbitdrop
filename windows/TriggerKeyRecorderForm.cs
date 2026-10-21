@@ -12,6 +12,7 @@ internal sealed class TriggerKeyRecorderForm : Forms.Form
 
     internal TriggerKeyRecorderForm(TriggerKeyOption current)
     {
+        var messageFontFamily = SystemFonts.MessageBoxFont?.FontFamily ?? Forms.Control.DefaultFont.FontFamily;
         Text = "Record OrbitDrop trigger key";
         ClientSize = new Size(430, 190);
         FormBorderStyle = Forms.FormBorderStyle.FixedDialog;
@@ -30,7 +31,7 @@ internal sealed class TriggerKeyRecorderForm : Forms.Form
         _captured = new Forms.Label
         {
             Text = $"Press any key  •  Current: {current.Label}",
-            Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 15, FontStyle.Bold),
+            Font = new Font(messageFontFamily, 15, FontStyle.Bold),
             ForeColor = Color.FromArgb(155, 220, 55),
             BackColor = Color.FromArgb(28, 31, 40),
             AutoSize = false,
