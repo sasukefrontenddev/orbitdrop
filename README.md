@@ -1,60 +1,85 @@
-# OrbitDrop
+<div align="center">
+  <img src="docs/orbitdrop-icon.png" alt="OrbitDrop logo" width="118" />
 
-Native, privacy-first desktop file tools for macOS and Windows.
+  # OrbitDrop
 
-OrbitDrop adds a transparent radial command wheel to Finder and File Explorer. Select a file, hold your chosen keyboard trigger, move to an action, and release the key. Conversion and editing happen entirely on the computer—no uploads, accounts, analytics, cookies, or telemetry.
+  **A privacy-first desktop file converter, compressor, and image toolkit for macOS and Windows.**
 
-The app checks the official GitHub Releases API for updates at startup and every six hours while it is running. This best-effort check contains no file data or tracking identifier, can also be triggered from the menu-bar/tray menu, and never blocks offline file operations. Starting with version 0.6.0, **Install Update** verifies the published SHA-256 checksum, replaces the running copy in place, reopens OrbitDrop, and removes its temporary files. A rollback copy is restored automatically if replacement fails.
+  Select files in Finder or File Explorer, hold your chosen key, move onto an action, and release. No uploads. No browser detour. No account.
 
-[Download OrbitDrop](https://orbitdropapp.vercel.app/#download) · [Product website](https://orbitdropapp.vercel.app) · [Website source](https://github.com/sasukefrontenddev/orbitdrop-website)
+  [**Download OrbitDrop**](https://orbitdropapp.vercel.app/#download) · [Live website](https://orbitdropapp.vercel.app) · [Latest release](https://github.com/sasukefrontenddev/orbitdrop/releases/latest) · [Help](https://orbitdropapp.vercel.app/help)
 
-![OrbitDrop transparent radial command wheel](docs/orbitdrop-wheel.png)
+  [![Native builds](https://github.com/sasukefrontenddev/orbitdrop/actions/workflows/build.yml/badge.svg)](https://github.com/sasukefrontenddev/orbitdrop/actions/workflows/build.yml)
+  [![Latest release](https://img.shields.io/github/v/release/sasukefrontenddev/orbitdrop?color=cfff46&label=release)](https://github.com/sasukefrontenddev/orbitdrop/releases/latest)
+  [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-8b78ff?logo=apple&logoColor=white)](https://orbitdropapp.vercel.app/requirements)
+  [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-8b78ff?logo=windows11&logoColor=white)](https://orbitdropapp.vercel.app/requirements)
+  [![Privacy: local processing](https://img.shields.io/badge/privacy-local%20processing-cfff46?logo=shield&logoColor=111)](PRIVACY.md)
+</div>
 
-## Features
+![OrbitDrop transparent radial command wheel on the desktop](docs/orbitdrop-wheel.png)
+
+## File tools without the upload
+
+Most online file converters ask you to leave your workflow and send a document to somebody else’s server. OrbitDrop brings the tools to the file instead.
+
+- **Desktop-native:** AppKit on macOS and WPF on Windows—not a website wrapped as an app.
+- **Private by architecture:** conversions, compression, archives, and image edits run locally.
+- **Fast by interaction:** one configurable hold key opens a transparent radial command wheel.
+- **Safe by default:** new outputs are written beside the source; originals are not intentionally overwritten.
+- **Useful offline:** file actions keep working without an internet connection after installation.
+- **Easy to maintain:** verified in-place updates replace the installed copy and can roll back after a failed replacement.
+
+## What OrbitDrop can do
 
 | Convert | Optimize and organize | Edit images |
 | --- | --- | --- |
-| PDF | ZIP | Resize to 50% |
-| PNG | Shrink | Rotate 90° |
-| JPG | Safe copy | Flip horizontally |
-| TIFF |  | Grayscale |
-| BMP |  |  |
+| Documents and images → **PDF** | Create **ZIP** archives | **Resize** to 50% |
+| Images → **PNG** | Adaptive **Shrink** | **Rotate** 90° |
+| Images → **JPG** | Create a **safe copy** | **Flip** horizontally |
+| Images → **TIFF** | Maximum-compression ZIP for documents and folders | Convert to **grayscale** |
+| Images → **BMP** | Collision-safe output names | Preserve the source file |
 
-- Native AppKit utility for macOS 13+ on Apple Silicon and Intel.
-- Native WPF utility for 64-bit Windows 10 and Windows 11.
-- Dark, transparent command wheel with native/vector icons.
-- Configurable Space, F6–F12, or A–Z hold key saved locally on the computer.
-- Visible local-processing, success, and failure states.
-- New output files are created beside the original; source files are not overwritten.
-- Works offline after installation.
+OrbitDrop supports common document inputs such as DOCX, RTF, TXT, and HTML for PDF output, plus the image formats supported by each operating system. Windows uses Microsoft Word for the highest-fidelity DOCX-to-PDF result when Word is available.
 
-## Install
+## How it works
 
-Download the latest installers from the [OrbitDrop releases page](https://github.com/sasukefrontenddev/orbitdrop/releases/latest) or the [official website](https://orbitdropapp.vercel.app/#download).
+1. Select one or more files in Finder or File Explorer.
+2. Hold your trigger key for about a quarter of a second. **Space** is the default; F6–F12 and A–Z are also available.
+3. Keep holding while you move the pointer onto an action.
+4. Release the key to run it, or press Escape to cancel.
+
+The chosen trigger is stored only on the computer. Processing and result states appear directly in the wheel.
+
+## Download and install
+
+Use the [official OrbitDrop download page](https://orbitdropapp.vercel.app/#download) for the correct build, current file size, and SHA-256 checksum. Release files are also available directly from [GitHub Releases](https://github.com/sasukefrontenddev/orbitdrop/releases/latest).
 
 ### macOS
 
 1. Download and unzip the universal macOS package.
 2. Move `OrbitDrop.app` to Applications.
-3. Control-click the app, choose **Open**, and confirm.
-4. Grant Accessibility access when macOS requests it so OrbitDrop can detect the chosen trigger key.
+3. Because this early release is not notarized, Control-click OrbitDrop, choose **Open**, and confirm.
+4. Grant Accessibility access when macOS asks. OrbitDrop uses it to detect the configured hold key.
 
-## Use
-
-1. Select one or more files in Finder or File Explorer.
-2. Hold the configured trigger key for a moment; Space is the default.
-3. Keep holding and move the pointer onto the desired wheel action.
-4. Release the key to perform the highlighted action.
-
-Change the trigger from the OrbitDrop menu-bar or system-tray menu. Press Escape to cancel an open wheel.
+Supports macOS 13 Ventura or later on Apple Silicon and Intel Macs.
 
 ### Windows
 
 1. Download the Windows x64 executable.
-2. Verify its SHA-256 checksum.
-3. If SmartScreen appears, choose **More info** and **Run anyway** only when the checksum matches.
+2. Compare its SHA-256 value with the [official checksum directory](https://orbitdropapp.vercel.app/checksums).
+3. Because this early release is not Authenticode-signed, SmartScreen may appear. Choose **More info** and **Run anyway** only after the checksum matches.
 
-The current early release is not Developer ID / Authenticode signed or notarized.
+Supports 64-bit Windows 10 and Windows 11. The executable is self-contained.
+
+## Private, verified updates
+
+OrbitDrop checks the public GitHub release feed shortly after launch and every six hours while running. The request contains no file, filename, account, advertising identifier, or conversion history.
+
+From version 0.6.0 onward, **Install Update** downloads the release to temporary storage, verifies its published SHA-256 checksum and version, replaces the current app, reopens OrbitDrop, and removes the temporary files. A recovery copy restores the previous version if replacement fails.
+
+> Versions older than 0.6.0 need one final manual installation. Future releases then update in place.
+
+Read the complete [privacy promise](PRIVACY.md), [security policy](SECURITY.md), and [release history](https://orbitdropapp.vercel.app/releases).
 
 ## Build from source
 
@@ -67,7 +92,7 @@ zsh macos/test.sh
 zsh macos/build.sh
 ```
 
-The universal app is created at `macos/build/OrbitDrop.app`.
+The universal application is created at `macos/build/OrbitDrop.app`.
 
 ### Windows
 
@@ -79,20 +104,30 @@ powershell -ExecutionPolicy Bypass -File windows/build.ps1
 
 The self-contained x64 executable is created under `windows/build/win-x64`.
 
-## Privacy
+## Release integrity and automation
 
-OrbitDrop performs file operations locally. It has no server API, upload system, user database, analytics SDK, advertising identifier, or telemetry endpoint. See [PRIVACY.md](PRIVACY.md) for the complete promise.
+Every pull request and change to `main` builds both native apps and runs platform checks. An accepted version change triggers a release pipeline that:
 
-## Release automation
+1. validates matching macOS and Windows versions;
+2. rebuilds on the native operating systems;
+3. generates SHA-256 checksums;
+4. publishes build-provenance attestations; and
+5. uploads the packages to GitHub Releases.
 
-Every pull request and change to `main` builds and tests the native macOS and Windows apps. To publish a release:
+The [OrbitDrop website](https://github.com/sasukefrontenddev/orbitdrop-website) reads that verified release automatically, so its download buttons, version, file sizes, and checksum page stay current.
 
-1. Run `sh scripts/set-version.sh 0.6.0` with the intended version.
-2. Commit and merge the version change after the required owner review.
-3. The successful `main` build automatically creates and publishes the matching release. **Actions → Desktop release → Run workflow** is available only as a recovery option.
+## Contributing and support
 
-The release workflow creates the version tag, rebuilds both apps on their native operating systems, generates SHA-256 checksums, publishes build-provenance attestations, and uploads the installers to GitHub Releases. The product website reads the latest verified release automatically, so its download buttons, version number, file sizes, and checksum directory update without copying installers into the website repository.
+- Found a bug? [Open an issue](https://github.com/sasukefrontenddev/orbitdrop/issues) with the operating system, file type, and steps to reproduce it.
+- Have a focused improvement? Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+- Found a vulnerability? Follow [SECURITY.md](SECURITY.md) and use private vulnerability reporting when available.
+- Want to help others discover private desktop tools? Star the repository and share the [official website](https://orbitdropapp.vercel.app).
 
-## Repository policy
+## License
 
-The source is published for transparency and portfolio review. See [LICENSE](LICENSE) before copying or redistributing it. Contributions and responsible security reports are welcome.
+OrbitDrop is source-available for inspection, security review, education, and portfolio evaluation. It is **not an open-source license**: copying, modification, redistribution, sublicensing, sale, and derivative works require prior written permission. See [LICENSE](LICENSE).
+
+<div align="center">
+  <strong>Your files stay on your computer.</strong><br />
+  <sub>Built for macOS and Windows · No uploads · No tracking · No account</sub>
+</div>
