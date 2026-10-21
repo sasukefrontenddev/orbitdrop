@@ -74,9 +74,16 @@ struct OperationTests {
         guard gate.keyDown(code: 31, finderFrontmost: true, processing: false) == .began,
               gate.isHeld,
               gate.keyDown(code: 31, finderFrontmost: true, processing: false) == .repeated,
-              gate.keyUp(code: 31) == .ended,
+              gate.keyUp(code: 31) == .endedShortPress,
               !gate.isHeld else {
             throw OrbitFileError.conversionFailed("The configured letter key was not fully intercepted.")
+        }
+        guard gate.keyDown(code: 31, finderFrontmost: true, processing: false) == .began else {
+            throw OrbitFileError.conversionFailed("The configured letter key could not start a second gesture.")
+        }
+        gate.activateGesture()
+        guard gate.keyUp(code: 31) == .endedGesture else {
+            throw OrbitFileError.conversionFailed("A committed hold was mistaken for an ordinary key press.")
         }
         guard gate.keyDown(code: 31, finderFrontmost: false, processing: false) == .ignored,
               gate.keyDown(code: 0, finderFrontmost: true, processing: false) == .ignored else {
@@ -84,13 +91,13 @@ struct OperationTests {
         }
         gate.updateTrigger(56) // Left Shift: modifier-key path.
         guard gate.modifierChanged(code: 56, finderFrontmost: true, processing: false) == .began,
-              gate.modifierChanged(code: 56, finderFrontmost: true, processing: false) == .ended else {
+              gate.modifierChanged(code: 56, finderFrontmost: true, processing: false) == .endedShortPress else {
             throw OrbitFileError.conversionFailed("Modifier trigger keys were not intercepted.")
         }
         guard TriggerKey.label(for: 31, characters: "o") == "O",
               TriggerKey.label(for: 123, characters: nil) == "Left Arrow" else {
             throw OrbitFileError.conversionFailed("Recorded key labels were not preserved.")
         }
-        print("PASS: configurable keyboard gate consumes O down/repeat/up and supports modifier keys")
+        print("PASS: quick O presses remain normal; deliberate holds activate the wheel; modifiers pass through")
     }
 }
