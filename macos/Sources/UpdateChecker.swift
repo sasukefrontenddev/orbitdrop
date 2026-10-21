@@ -161,7 +161,10 @@ final class UpdateChecker {
             }
             let expanded = work.appendingPathComponent("expanded", isDirectory: true)
             try fileManager.createDirectory(at: expanded, withIntermediateDirectories: true)
-            guard run("/usr/bin/ditto", ["-x", "-k", archive.path, expanded.path]) == 0 else {
+            // Release downloads can carry Gatekeeper provenance/quarantine metadata.
+            // The archive has already passed its published SHA-256 check, so do not
+            // copy transport-only metadata into the verified replacement bundle.
+            guard run("/usr/bin/ditto", ["--noextattr", "--noqtn", "--noacl", "-x", "-k", archive.path, expanded.path]) == 0 else {
                 throw UpdateError.invalidArchive
             }
             let stagedApp = expanded.appendingPathComponent("OrbitDrop.app", isDirectory: true)
@@ -250,7 +253,7 @@ final class UpdateChecker {
         #!/bin/sh
         while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.2; done
         success=0
-        if /bin/mv \(target) \(saved) && /usr/bin/ditto \(source) \(target); then
+        if /bin/mv \(target) \(saved) && /usr/bin/ditto --noextattr --noqtn --noacl \(source) \(target); then
           success=1
         fi
         if [ "$success" -eq 1 ]; then
