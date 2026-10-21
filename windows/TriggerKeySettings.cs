@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using Forms = System.Windows.Forms;
 
@@ -7,21 +6,27 @@ namespace OrbitDrop.Native;
 
 internal readonly record struct TriggerKeyOption(int VirtualKey, string Label)
 {
-    internal static readonly IReadOnlyList<TriggerKeyOption> Supported = BuildSupported();
-
-    private static IReadOnlyList<TriggerKeyOption> BuildSupported()
+    internal static TriggerKeyOption FromKey(Forms.Keys key)
     {
-        var keys = new List<TriggerKeyOption>
+        var code = key & Forms.Keys.KeyCode;
+        var label = code switch
         {
-            new((int)Forms.Keys.Space, "Space"),
-            new((int)Forms.Keys.F6, "F6"), new((int)Forms.Keys.F7, "F7"),
-            new((int)Forms.Keys.F8, "F8"), new((int)Forms.Keys.F9, "F9"),
-            new((int)Forms.Keys.F10, "F10"), new((int)Forms.Keys.F11, "F11"),
-            new((int)Forms.Keys.F12, "F12")
+            Forms.Keys.Space => "Space",
+            Forms.Keys.Return => "Enter",
+            Forms.Keys.Escape => "Escape",
+            Forms.Keys.Back => "Backspace",
+            Forms.Keys.ShiftKey => "Shift",
+            Forms.Keys.ControlKey => "Control",
+            Forms.Keys.Menu => "Alt",
+            Forms.Keys.LShiftKey => "Left Shift",
+            Forms.Keys.RShiftKey => "Right Shift",
+            Forms.Keys.LControlKey => "Left Control",
+            Forms.Keys.RControlKey => "Right Control",
+            Forms.Keys.LMenu => "Left Alt",
+            Forms.Keys.RMenu => "Right Alt",
+            _ => new Forms.KeysConverter().ConvertToString(code) ?? code.ToString()
         };
-        for (var key = Forms.Keys.A; key <= Forms.Keys.Z; key++)
-            keys.Add(new TriggerKeyOption((int)key, key.ToString()));
-        return keys;
+        return new TriggerKeyOption((int)code, label);
     }
 }
 
@@ -36,13 +41,18 @@ internal static class TriggerKeySettings
     {
         try
         {
-            if (int.TryParse(File.ReadAllText(SettingsPath), out var stored))
-                foreach (var option in TriggerKeyOption.Supported)
-                    if (option.VirtualKey == stored) return option;
+            var parts = File.ReadAllText(SettingsPath).Split('|', 2);
+            if (int.TryParse(parts[0], out var stored))
+            {
+                var label = parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1])
+                    ? parts[1]
+                    : TriggerKeyOption.FromKey((Forms.Keys)stored).Label;
+                return new TriggerKeyOption(stored, label);
+            }
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
-        return TriggerKeyOption.Supported[0];
+        return TriggerKeyOption.FromKey(Forms.Keys.Space);
     }
 
     internal static void Save(TriggerKeyOption option)
@@ -51,7 +61,7 @@ internal static class TriggerKeySettings
         {
             var directory = Path.GetDirectoryName(SettingsPath)!;
             Directory.CreateDirectory(directory);
-            File.WriteAllText(SettingsPath, option.VirtualKey.ToString());
+            File.WriteAllText(SettingsPath, $"{option.VirtualKey}|{option.Label.Replace("|", string.Empty)}");
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }

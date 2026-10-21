@@ -44,11 +44,11 @@ OrbitDrop supports common document inputs such as DOCX, RTF, TXT, and HTML for P
 ## How it works
 
 1. Select one or more files in Finder or File Explorer.
-2. Hold your trigger key for about a quarter of a second. **Space** is the default; F6–F12 and A–Z are also available.
+2. Hold your trigger key for about a quarter of a second. **Space** is the default. Choose **Record trigger key** and press the physical key you want—letters, numbers, punctuation, arrows, modifiers, Space, and function keys are supported without a dropdown.
 3. Keep holding while you move the pointer onto an action.
 4. Release the key to run it, or press Escape to cancel.
 
-The chosen trigger is stored only on the computer. Processing and result states appear directly in the wheel.
+The chosen trigger is stored only on the computer. On macOS, the menu must say **Keyboard: ready ✓** before the gesture can work. OrbitDrop performs a harmless local self-test to confirm it can capture and suppress the trigger before Finder receives it; use **Run keyboard self-test…** at any time. Processing and result states appear directly in the wheel.
 
 ## Download and install
 
@@ -59,7 +59,7 @@ Use the [official OrbitDrop download page](https://orbitdropapp.vercel.app/#down
 1. Download and unzip the universal macOS package.
 2. Move `OrbitDrop.app` to Applications.
 3. Because this early release is not notarized, Control-click OrbitDrop, choose **Open**, and confirm.
-4. Grant Accessibility access when macOS asks. OrbitDrop uses it to detect the configured hold key.
+4. Grant Accessibility access when macOS asks. OrbitDrop uses it to intercept the configured hold key so Finder does not jump to a filename beginning with that letter. If the menu shows **Keyboard: access required**, choose **Repair Keyboard Access…**, remove any stale OrbitDrop entry, add the copy in Applications, enable it, and reopen OrbitDrop.
 
 Supports macOS 13 Ventura or later on Apple Silicon and Intel Macs.
 
@@ -75,9 +75,9 @@ Supports 64-bit Windows 10 and Windows 11. The executable is self-contained.
 
 OrbitDrop checks the public GitHub release feed shortly after launch and every six hours while running. The request contains no file, filename, account, advertising identifier, or conversion history.
 
-From version 0.6.0 onward, **Install Update** downloads the release to temporary storage, verifies its published SHA-256 checksum and version, replaces the current app, reopens OrbitDrop, and removes the temporary files. A recovery copy restores the previous version if replacement fails.
+From version 0.6.1 onward, **Install Update** downloads the release to temporary storage, verifies its published SHA-256 checksum and version, replaces the current app, reopens OrbitDrop, and removes the temporary files. A recovery copy restores the previous version if replacement fails.
 
-> Versions older than 0.6.0 need one final manual installation. Future releases then update in place.
+> Versions older than 0.6.1 need one final manual installation. Future releases then update in place.
 
 Read the complete [privacy promise](PRIVACY.md), [security policy](SECURITY.md), and [release history](https://orbitdropapp.vercel.app/releases).
 
