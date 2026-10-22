@@ -1,0 +1,94 @@
+<svg width="1200" height="480" viewBox="0 0 1200 480" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">OrbitDrop — native file tools at the speed of a gesture</title>
+  <desc id="desc">An animated orbital command wheel connects local files to conversion, compression, archive, and image actions.</desc>
+  <defs>
+    <linearGradient id="bg" x1="40" y1="20" x2="1160" y2="460" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17152E"/>
+      <stop offset="0.48" stop-color="#0D0C1B"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0" cy="0" r="1" gradientTransform="translate(870 242) rotate(90) scale(170)">
+      <stop stop-color="#8175FF" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#8175FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#D9FF57"/>
+      <stop offset="1" stop-color="#8CFFB1"/>
+    </linearGradient>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" stroke="#8175FF" stroke-opacity=".07"/>
+    </pattern>
+    <style>
+      .dash { animation: dash 12s linear infinite; }
+      .dash-reverse { animation: dash 16s linear infinite reverse; }
+      .pulse { animation: pulse 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .blink { animation: blink 3.2s ease-in-out infinite; }
+      .spin-a,.spin-b,.spin-c,.spin-d,.spin-e { transform-origin:870px 242px; }
+      .spin-a { animation: spinA 8s linear infinite; }
+      .spin-b { animation: spinB 8s linear infinite; }
+      .spin-c { animation: spinC 8s linear infinite; }
+      .spin-d { animation: spinD 11s linear infinite; }
+      .spin-e { animation: spinE 11s linear infinite; }
+      @keyframes dash { to { stroke-dashoffset: -180; } }
+      @keyframes pulse { 0%,100% { transform: scale(.94); opacity:.72 } 50% { transform: scale(1.06); opacity:1 } }
+      @keyframes blink { 0%,72%,100% { opacity:1 } 82% { opacity:.35 } }
+      @keyframes spinA { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+      @keyframes spinB { from { transform:rotate(120deg) } to { transform:rotate(480deg) } }
+      @keyframes spinC { from { transform:rotate(240deg) } to { transform:rotate(600deg) } }
+      @keyframes spinD { from { transform:rotate(48deg) } to { transform:rotate(408deg) } }
+      @keyframes spinE { from { transform:rotate(228deg) } to { transform:rotate(588deg) } }
+      @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+    </style>
+  </defs>
+
+  <rect width="1200" height="480" rx="34" fill="url(#bg)"/>
+  <rect width="1200" height="480" rx="34" fill="url(#grid)"/>
+  <path d="M0 400C215 318 352 530 586 424C826 315 957 381 1200 268V480H0V400Z" fill="#8175FF" fill-opacity=".05"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <rect x="54" y="54" width="176" height="30" rx="15" fill="#D9FF57" fill-opacity=".12" stroke="#D9FF57" stroke-opacity=".32"/>
+    <circle cx="72" cy="69" r="4" fill="#D9FF57" class="blink"/>
+    <text x="86" y="74" fill="#D9FF57" font-size="13" font-weight="700" letter-spacing="1.4">LOCAL ENGINE / 0.7.2</text>
+    <text x="54" y="145" fill="#F7F5FF" font-size="52" font-weight="800" letter-spacing="-2">Your file.</text>
+    <text x="54" y="202" fill="#F7F5FF" font-size="52" font-weight="800" letter-spacing="-2">Your gesture.</text>
+    <text x="54" y="259" fill="url(#accent)" font-size="52" font-weight="800" letter-spacing="-2">Done locally.</text>
+    <text x="57" y="307" fill="#B9B4D0" font-size="17">SELECT  ·  HOLD  ·  GLIDE  ·  RELEASE</text>
+
+    <g transform="translate(54 349)">
+      <rect width="134" height="42" rx="12" fill="#24213E" stroke="#8175FF" stroke-opacity=".45"/>
+      <text x="18" y="26" fill="#EDEAFF" font-size="14" font-weight="700">NO UPLOADS</text>
+      <rect x="146" width="132" height="42" rx="12" fill="#24213E" stroke="#8175FF" stroke-opacity=".45"/>
+      <text x="164" y="26" fill="#EDEAFF" font-size="14" font-weight="700">NO TRACKING</text>
+      <rect x="290" width="139" height="42" rx="12" fill="#24213E" stroke="#8175FF" stroke-opacity=".45"/>
+      <text x="308" y="26" fill="#EDEAFF" font-size="14" font-weight="700">NATIVE APPS</text>
+    </g>
+  </g>
+
+  <circle cx="870" cy="242" r="184" fill="url(#core)"/>
+  <ellipse cx="870" cy="242" rx="183" ry="93" stroke="#8175FF" stroke-opacity=".44" stroke-width="2" stroke-dasharray="11 15" class="dash"/>
+  <ellipse cx="870" cy="242" rx="146" ry="146" transform="rotate(43 870 242)" stroke="#D9FF57" stroke-opacity=".24" stroke-width="2" stroke-dasharray="6 18" class="dash-reverse"/>
+  <circle cx="870" cy="242" r="103" fill="#141228" stroke="#8175FF" stroke-width="2"/>
+  <circle cx="870" cy="242" r="81" fill="#1D1938" stroke="#A198FF" stroke-opacity=".55" stroke-width="12" stroke-dasharray="52 12" class="dash"/>
+
+  <g class="pulse" filter="url(#glow)">
+    <rect x="837" y="209" width="66" height="66" rx="17" fill="#17152E" stroke="#D9FF57" stroke-width="2"/>
+    <path d="M870 221V260M853 245L870 262L887 245" stroke="#D9FF57" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="800" text-anchor="middle">
+    <g class="spin-a"><circle cx="1053" cy="242" r="27" fill="#272243" stroke="#8175FF" stroke-width="2"/><text x="1053" y="246" fill="#F7F5FF">PDF</text></g>
+    <g class="spin-b" transform="rotate(120 870 242)"><circle cx="1053" cy="242" r="27" fill="#272243" stroke="#D9FF57" stroke-width="2"/><text x="1053" y="246" fill="#D9FF57">ZIP</text></g>
+    <g class="spin-c" transform="rotate(240 870 242)"><circle cx="1053" cy="242" r="27" fill="#272243" stroke="#FF745E" stroke-width="2"/><text x="1053" y="246" fill="#FFD8D1">JPG</text></g>
+    <g class="spin-d" transform="rotate(48 870 242)"><rect x="984" y="224" width="62" height="36" rx="10" fill="#141228" stroke="#8175FF"/><text x="1015" y="246" fill="#EDEAFF">SHRINK</text></g>
+    <g class="spin-e" transform="rotate(228 870 242)"><rect x="984" y="224" width="62" height="36" rx="10" fill="#141228" stroke="#D9FF57"/><text x="1015" y="246" fill="#EDEAFF">ROTATE</text></g>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#8983A5">
+    <text x="787" y="451">FILES NEVER LEAVE THE DEVICE</text>
+    <circle cx="770" cy="447" r="4" fill="#D9FF57" class="blink"/>
+  </g>
+</svg>
