@@ -188,7 +188,7 @@ OrbitDrop is source-available for inspection, security review, education, and po
   <br />
   <sub>Built for macOS and Windows · No uploads · No tracking · No account</sub>
   <br /><br />
-  <a href="https://github.com/sasukefrontenddev/orbitdrop/stargazers">★ Star OrbitDrop</a>
+  <a href="https://github.com/sasukefrontenddev/orbitdrop">★ Star OrbitDrop</a>
   &nbsp;·&nbsp;
   <a href="https://orbitdropapp.vercel.app">Visit the launch site</a>
 </div>
