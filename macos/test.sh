@@ -15,10 +15,13 @@ SDKROOT="$SDK_PATH" CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" swiftc \
   -swift-version 5 \
   -parse-as-library \
   "$SCRIPT_DIR/Sources/TriggerKey.swift" \
+  "$SCRIPT_DIR/Sources/FinderBridge.swift" \
+  "$SCRIPT_DIR/Sources/UpdateChecker.swift" \
   "$SCRIPT_DIR/Sources/RadialPanel.swift" \
   "$SCRIPT_DIR/Sources/FileOperations.swift" \
   "$SCRIPT_DIR/Tests/OperationTests.swift" \
   -framework AppKit \
+  -framework ApplicationServices \
   -framework QuartzCore \
   -o "$TEST_BINARY"
 

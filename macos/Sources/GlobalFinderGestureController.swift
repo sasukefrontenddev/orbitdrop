@@ -128,7 +128,10 @@ final class GlobalFinderGestureController {
         switch type {
         case .keyDown:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            switch keyGate.keyDown(code: keyCode, finderFrontmost: FinderBridge.isFinderFrontmost, processing: isProcessing) {
+            let finderCanAcceptTrigger = keyCode == triggerKey.code
+                && FinderBridge.isFinderFrontmost
+                && !FinderBridge.isTextInputFocused
+            switch keyGate.keyDown(code: keyCode, finderFrontmost: finderCanAcceptTrigger, processing: isProcessing) {
             case .began:
                 pendingReplay = (keyCode, event.flags)
                 beginGesture()
@@ -148,7 +151,8 @@ final class GlobalFinderGestureController {
             guard TriggerKey.isModifier(code: keyCode), keyCode == triggerKey.code else {
                 return Unmanaged.passUnretained(event)
             }
-            switch keyGate.modifierChanged(code: keyCode, finderFrontmost: FinderBridge.isFinderFrontmost, processing: isProcessing) {
+            let finderCanAcceptTrigger = FinderBridge.isFinderFrontmost && !FinderBridge.isTextInputFocused
+            switch keyGate.modifierChanged(code: keyCode, finderFrontmost: finderCanAcceptTrigger, processing: isProcessing) {
             case .began:
                 beginGesture()
                 return Unmanaged.passUnretained(event)

@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 
 @main
 struct OperationTests {
@@ -6,6 +7,7 @@ struct OperationTests {
         _ = NSApplication.shared
         let manager = FileManager.default
         try testKeyboardInterception()
+        try testUpdateInteractionGate()
         let root = manager.temporaryDirectory.appendingPathComponent("OrbitDropTests-\(UUID().uuidString)", isDirectory: true)
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
@@ -98,6 +100,37 @@ struct OperationTests {
               TriggerKey.label(for: 123, characters: nil) == "Left Arrow" else {
             throw OrbitFileError.conversionFailed("Recorded key labels were not preserved.")
         }
+        guard FinderBridge.isTextInput(role: kAXTextFieldRole as String, subrole: nil),
+              FinderBridge.isTextInput(role: kAXTextAreaRole as String, subrole: nil),
+              FinderBridge.isTextInput(role: kAXGroupRole as String, subrole: "AXSearchField"),
+              !FinderBridge.isTextInput(role: kAXGroupRole as String, subrole: nil) else {
+            throw OrbitFileError.conversionFailed("Finder text-entry detection did not protect rename and search fields.")
+        }
         print("PASS: quick O presses remain normal; deliberate holds activate the wheel; modifiers pass through")
+    }
+
+    private static func testUpdateInteractionGate() throws {
+        var gate = UpdateInteractionGate()
+        guard gate.requestCheck(manual: false),
+              !gate.requestCheck(manual: false),
+              !gate.requestCheck(manual: true),
+              gate.finishCheck(),
+              gate.beginPrompt(),
+              !gate.requestCheck(manual: true) else {
+            throw OrbitFileError.conversionFailed("Concurrent update checks were not collapsed into one prompt.")
+        }
+        gate.endPrompt()
+        guard gate.requestCheck(manual: false),
+              !gate.finishCheck(),
+              gate.beginInstall(),
+              !gate.beginInstall(),
+              !gate.requestCheck(manual: true) else {
+            throw OrbitFileError.conversionFailed("Update installation did not suppress checks and duplicate launches.")
+        }
+        gate.failInstall()
+        guard gate.requestCheck(manual: false), !gate.finishCheck() else {
+            throw OrbitFileError.conversionFailed("A failed update did not restore future update checks.")
+        }
+        print("PASS: overlapping update checks collapse into one prompt; installs suppress duplicate checks")
     }
 }
