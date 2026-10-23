@@ -1,5 +1,50 @@
 import AppKit
 
+struct UpdateInteractionGate {
+    private(set) var checking = false
+    private(set) var promptVisible = false
+    private(set) var installing = false
+    private var manualCheckPending = false
+
+    mutating func requestCheck(manual: Bool) -> Bool {
+        if checking {
+            manualCheckPending = manualCheckPending || manual
+            return false
+        }
+        guard !installing, !promptVisible else { return false }
+        manualCheckPending = manual
+        checking = true
+        return true
+    }
+
+    mutating func finishCheck() -> Bool {
+        checking = false
+        let wasManual = manualCheckPending
+        manualCheckPending = false
+        return wasManual
+    }
+
+    mutating func beginPrompt() -> Bool {
+        guard !promptVisible, !installing else { return false }
+        promptVisible = true
+        return true
+    }
+
+    mutating func endPrompt() {
+        promptVisible = false
+    }
+
+    mutating func beginInstall() -> Bool {
+        guard !installing else { return false }
+        installing = true
+        return true
+    }
+
+    mutating func failInstall() {
+        installing = false
+    }
+}
+
 final class UpdateChecker {
     private struct Release: Decodable {
         struct Asset: Decodable {
@@ -39,9 +84,20 @@ final class UpdateChecker {
     }
 
     private static let latestReleaseURL = URL(string: "https://api.github.com/repos/sasukefrontenddev/orbitdrop/releases/latest")!
+    private static let pendingUpdateKey = "OrbitDropPendingUpdateVersion"
     private var timer: Timer?
     private var displayedVersion: String?
-    private var installing = false
+    private var interaction = UpdateInteractionGate()
+
+    init() {
+        if let pending = UserDefaults.standard.string(forKey: Self.pendingUpdateKey) {
+            if isNewer(pending, than: currentVersion) {
+                displayedVersion = pending
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.pendingUpdateKey)
+            }
+        }
+    }
 
     func start() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.check() }
@@ -49,23 +105,35 @@ final class UpdateChecker {
     }
 
     func check(showCurrent: Bool = false) {
+        precondition(Thread.isMainThread)
+        guard interaction.requestCheck(manual: showCurrent) else { return }
         var request = URLRequest(url: Self.latestReleaseURL)
         request.timeoutInterval = 12
         request.setValue("OrbitDrop/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
-            guard let self, let data,
-                  (response as? HTTPURLResponse)?.statusCode == 200,
-                  let release = try? JSONDecoder().decode(Release.self, from: data) else { return }
-            let latest = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
-            guard self.isNewer(latest, than: self.currentVersion) else {
-                if showCurrent { DispatchQueue.main.async { self.presentCurrentVersion() } }
-                return
+            let release: Release?
+            if let data, (response as? HTTPURLResponse)?.statusCode == 200 {
+                release = try? JSONDecoder().decode(Release.self, from: data)
+            } else {
+                release = nil
             }
-            guard self.displayedVersion != latest else { return }
-            self.displayedVersion = latest
-            DispatchQueue.main.async { self.present(release: release, version: latest) }
+            DispatchQueue.main.async { self?.finishCheck(release: release) }
         }.resume()
+    }
+
+    private func finishCheck(release: Release?) {
+        precondition(Thread.isMainThread)
+        let wasManual = interaction.finishCheck()
+        guard let release else { return }
+        let latest = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+        guard isNewer(latest, than: currentVersion) else {
+            if wasManual { presentCurrentVersion() }
+            return
+        }
+        guard displayedVersion != latest || wasManual else { return }
+        displayedVersion = latest
+        present(release: release, version: latest)
     }
 
     private var currentVersion: String {
@@ -84,6 +152,8 @@ final class UpdateChecker {
     }
 
     private func presentCurrentVersion() {
+        guard interaction.beginPrompt() else { return }
+        defer { interaction.endPrompt() }
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "OrbitDrop is up to date"
@@ -94,7 +164,8 @@ final class UpdateChecker {
     }
 
     private func present(release: Release, version: String) {
-        guard !installing else { return }
+        guard interaction.beginPrompt() else { return }
+        defer { interaction.endPrompt() }
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "OrbitDrop \(version) is available"
@@ -107,13 +178,13 @@ final class UpdateChecker {
     }
 
     private func install(release: Release, version: String) {
-        guard !installing else { return }
         guard let archive = release.assets.first(where: { $0.name.hasSuffix("macOS-universal.zip") }),
               let checksums = release.assets.first(where: { $0.name == "SHA256SUMS.txt" }) else {
             present(error: UpdateError.missingAssets)
             return
         }
-        installing = true
+        guard interaction.beginInstall() else { return }
+        UserDefaults.standard.set(version, forKey: Self.pendingUpdateKey)
         var checksumRequest = URLRequest(url: checksums.browserDownloadUrl)
         checksumRequest.timeoutInterval = 30
         checksumRequest.setValue("OrbitDrop/\(currentVersion)", forHTTPHeaderField: "User-Agent")
@@ -257,12 +328,12 @@ final class UpdateChecker {
           success=1
         fi
         if [ "$success" -eq 1 ]; then
-          /usr/bin/open -n \(target)
+          /usr/bin/open \(target)
           /bin/rm -rf \(saved)
         else
           /bin/rm -rf \(target)
           if [ -e \(saved) ]; then /bin/mv \(saved) \(target); fi
-          if [ -e \(target) ]; then /usr/bin/open -n \(target); fi
+          if [ -e \(target) ]; then /usr/bin/open \(target); fi
         fi
         /bin/rm -rf \(temporary)
         """
@@ -278,7 +349,8 @@ final class UpdateChecker {
 
     private func finishWith(error: Error) {
         DispatchQueue.main.async { [weak self] in
-            self?.installing = false
+            self?.interaction.failInstall()
+            UserDefaults.standard.removeObject(forKey: Self.pendingUpdateKey)
             self?.present(error: error)
         }
     }

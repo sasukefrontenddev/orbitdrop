@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var repairAccessItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard activateExistingInstanceIfNeeded() == false else { return }
         eventController = GlobalFinderGestureController()
         configureStatusItem()
         eventController.onStatusChange = { [weak self] status in
@@ -19,6 +20,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateChecker = UpdateChecker()
         updateChecker.start()
         requestAccessibilityAndStart()
+    }
+
+    private func activateExistingInstanceIfNeeded() -> Bool {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return false }
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        guard let existing = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first(where: { $0.processIdentifier != currentPID && !$0.isTerminated }) else { return false }
+        existing.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        DispatchQueue.main.async { NSApp.terminate(nil) }
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -71,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Use OrbitDrop directly in Finder"
-        alert.informativeText = "1. Confirm the menu says Keyboard: ready.\n2. Select one or more files on the Desktop or in Finder.\n3. Hold \(eventController.triggerKeyLabel) for a quarter-second to open OrbitDrop.\n4. Keep holding, move the pointer onto an action, then release the key to run it.\n\nA quick press still behaves like the normal key. Modifier keys keep their normal behavior even while used as the trigger. Use Record trigger key to press the exact key you want. All processing stays on this Mac."
+        alert.informativeText = "1. Confirm the menu says Keyboard: ready.\n2. Select one or more files on the Desktop or in Finder.\n3. Hold \(eventController.triggerKeyLabel) for a quarter-second to open OrbitDrop.\n4. Keep holding, move the pointer onto an action, then release the key to run it.\n\nA quick press still behaves like the normal key. While renaming or typing in Finder, OrbitDrop pauses its trigger so every character works normally. Modifier keys keep their normal behavior even while used as the trigger. Use Record trigger key to press the exact key you want. All processing stays on this Mac."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Got it")
         alert.runModal()
